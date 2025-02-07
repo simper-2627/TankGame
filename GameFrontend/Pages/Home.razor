@@ -1,0 +1,67 @@
+﻿@page "/"
+@using GameLogic
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Text.Json
+@inject SignalRService signalR;
+
+<PageTitle>Home</PageTitle>
+
+<form @onsubmit:preventDefault=true @onsubmit=CreateGame>
+  <label class="form-label">
+    New Game <input class="form-control" type="text" @bind=userInputGameName>
+  </label>
+</form>
+
+@foreach (var game in games)
+{
+  <div>
+  @game.Name
+  <button class="btn btn-primary" @onclick="() => JoinGame(game.Name)">Join Game</button>
+</div>
+}
+
+
+@code {
+  private HubConnection? hubConnection;
+  private string userInputGameName = "";
+
+  private IEnumerable<GameState> games = [];
+
+  protected override async Task OnInitializedAsync()
+  {
+    await signalR.EnsureConnected();
+
+    signalR.HubConnection?.On<IEnumerable<GameState>>(Messages.GameList, (newGames) => {
+      Console.WriteLine("got game list");
+      
+      Console.WriteLine(JsonSerializer.Serialize(newGames));
+      
+      games = newGames;
+      InvokeAsync(StateHasChanged);
+    });
+
+    signalR.HubConnection?.On<string, Guid>(Messages.CreatedGame, (gameName, playerId) => {
+      Console.WriteLine("got created game response");
+      Navigation.NavigateTo($"/game/{gameName}/player/{playerId}");
+    });
+    signalR.HubConnection?.On<string, Guid>(Messages.JoinedGame, (gameName, playerId) => {
+      Console.WriteLine("got  game joined response");
+      Navigation.NavigateTo($"/game/{gameName}/player/{playerId}");
+    });
+
+    signalR.HubConnection?.SendAsync(Messages.GetGames);
+  }
+  private async Task CreateGame()
+  {
+    Console.WriteLine("sending message to create game");
+    
+    signalR.HubConnection?.SendAsync(Messages.CreateGame, userInputGameName);
+    userInputGameName = "";
+  }
+  
+  private void JoinGame(string gameName)
+  {    
+    signalR.HubConnection?.SendAsync(Messages.JoinGame, gameName);
+  }
+}

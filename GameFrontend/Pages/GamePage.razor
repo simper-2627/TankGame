@@ -1,0 +1,40 @@
+@page "/game/{GameName}/player/{PlayerId:guid}"
+@using GameLogic
+@using GameLogic.Game
+@using Microsoft.AspNetCore.SignalR.Client
+@inject SignalRService signalR
+
+
+@if (game != null)
+{
+  <PlayerControls GameName=@GameName PlayerId=PlayerId>
+  @foreach (var tank in game.Tanks)
+    {
+      <TankComponent Tank=tank />
+    }
+    </PlayerControls>
+}
+
+@code {
+  [Parameter]
+  public string GameName { get; set; }
+
+  [Parameter]
+  public Guid PlayerId { get; set; }
+
+  private GameState? game = null;
+
+  protected override async Task OnParametersSetAsync()
+  {
+    await signalR.EnsureConnected();
+
+    signalR.HubConnection?.On<GameState>(Messages.GameUpdate, (gameState) =>
+    {
+      game = gameState;
+      InvokeAsync(StateHasChanged);
+    });
+
+    signalR.HubConnection?.SendAsync(Messages.SubscribeToGame, GameName);
+
+  }
+}
