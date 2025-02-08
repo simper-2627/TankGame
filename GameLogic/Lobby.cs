@@ -7,7 +7,7 @@ public class Lobby
   public List<Game> Games { get; set; } = new();
   private readonly IHubContext<LobbyHub> context;
 
-  public event Action OnLobbyUpdate;
+  //public event Action? OnLobbyUpdate;
   public Lobby(IHubContext<LobbyHub> context)
   {
     this.context = context;

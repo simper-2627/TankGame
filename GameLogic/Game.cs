@@ -8,9 +8,9 @@ public class Game
   private readonly IHubContext<LobbyHub> hubContext;
 
   public GameStatus Status => GameStatus.Playing;
-  public event Action OnUpdate;
+  //public event Action? OnUpdate;
   public readonly ConcurrentBag<string> ConnectedClients = new();
-  public string Name { get; init; }
+  public string? Name { get; init; }
   public IEnumerable<Tank> Tanks { get; internal set; } = [];
   public CancellationTokenSource CancellationTokenSource { get; set; } = new CancellationTokenSource();
   public GameLoopRunner loopRunner { get; set; }
