@@ -58,7 +58,8 @@ public class Game
         {
           MovingForward = request.Forward,
           MovingLeft = request.Left,
-          MovingRight = request.Right
+          MovingRight = request.Right,
+          Shooting = request.Shoot
         }
         : t;
     })
