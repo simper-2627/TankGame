@@ -32,7 +32,13 @@ public class Game
         Id = t.Id,
         PositionX = t.PositionX,
         PositionY = t.PositionY,
-        Angle = t.Angle
+        Angle = t.Angle,
+        Bullets = t.Bullets.Select(b => new BulletState()
+        {
+            PositionX = b.PositionX,
+            PositionY = b.PositionY,
+            Angle = b.Angle
+        }).ToList()
       }).ToArray()
     };
   }

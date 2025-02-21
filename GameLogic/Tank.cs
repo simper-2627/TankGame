@@ -11,6 +11,7 @@ public record Tank
     public bool MovingLeft { get; init; }
     public bool MovingRight { get; init; }
     public bool Shooting { get; init; }
+    public List<Bullet> Bullets { get; init; } = new();
 
     private const int MovementSpeedConst = 8;
     private const int MovementAngleConst = 30;
@@ -20,6 +21,7 @@ public record Tank
     {
         var turnedShip = CalculateNewAngleAndSpeed(tank);
         var movedShip = CalculateNewPosition(turnedShip);
+        var shootingShip = CalculateShooting(movedShip);
         return movedShip;
     }
 
@@ -62,6 +64,25 @@ public record Tank
             PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, BoardSize)
         };
         return newSprite;
+    }
+
+    private static Tank CalculateShooting(Tank incomingTank)
+    {
+        if (incomingTank.Shooting)
+        {
+            var bullet = new Bullet
+            {
+                PositionX = incomingTank.PositionX,
+                PositionY = incomingTank.PositionY,
+                Angle = incomingTank.Angle
+            };
+            incomingTank.Bullets.Add(bullet);
+        }
+        var updatedBullets = incomingTank.Bullets.Select(b => Bullet.MoveBullet(b)).ToList();
+        return incomingTank with
+        {
+            Bullets = updatedBullets
+        };
     }
 
 }

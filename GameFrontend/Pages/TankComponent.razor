@@ -101,5 +101,9 @@
 		C314.733,251.587,311.32,255,306.2,255z" />
       </g>
    </svg>
+   @foreach (var bullet in tank.Bullets)
+   {
+            <div style=@($@"{transitionConst}; position: absolute; top: {bullet.PositionY}px; left: {bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
+   })
 </div>
 }
