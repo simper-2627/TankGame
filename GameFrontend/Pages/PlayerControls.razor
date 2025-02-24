@@ -28,6 +28,7 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
     public string GameName { get; set; }
     [Parameter]
     public Guid PlayerId { get; set; }
+    private bool lastDirectionBackwards { get; set; } = false;
     private const int boardSize = 700 + 50;
     private string[] movementKeys = ["w", "a", "s", "d", " "];
     private const double inputCheckInterval = 0.01;
@@ -63,7 +64,10 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
         var forward = pressedKeys.Contains("w");
         var left = pressedKeys.Contains("a") && !pressedKeys.Contains("d");
         var right = !pressedKeys.Contains("a") && pressedKeys.Contains("d");
+        var backward = pressedKeys.Contains("s");
         var shoot = pressedKeys.Contains(" ");
+        if (pressedKeys.Contains("s")) { lastDirectionBackwards = true; }
+        else if (pressedKeys.Contains("w")) { lastDirectionBackwards = false; }
 
         var movementMessage = new PlayerInputRequest
       {
@@ -73,7 +77,9 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
         Left = left,
         Right = right,
         Shoot = shoot,
-      };
+        Backward = backward,
+        LastDirectionBackwards = lastDirectionBackwards,
+       };
       
     if (movementMessage != lastSentInput)
     {
