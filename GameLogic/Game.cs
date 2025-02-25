@@ -65,7 +65,8 @@ public class Game
           MovingForward = request.Forward,
           MovingLeft = request.Left,
           MovingRight = request.Right,
-          Shooting = request.Shoot
+          Shooting = request.Shoot,
+          LastDirectionWasBackwards = request.LastDirectionBackwards
         }
         : t;
     })
