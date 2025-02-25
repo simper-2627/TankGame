@@ -13,7 +13,7 @@ public record Tank
     public bool Shooting { get; init; }
     public bool MovingBackward { get; init; }
     public bool LastDirectionWasBackwards { get; init; }
-    public List<Bullet> Bullets { get; init; } = new();
+    public Bullet Bullet { get; set; } = new();
 
     private const int ForwardMovementSpeedConst = 8;
     private const int BackwardMovementSpeedConst = -6;
@@ -111,12 +111,13 @@ public record Tank
                 PositionY = incomingTank.PositionY,
                 Angle = incomingTank.Angle
             };
-            incomingTank.Bullets.Add(bullet);
+            incomingTank.Bullet = bullet;
         }
-        var updatedBullets = incomingTank.Bullets.Select(b => Bullet.MoveBullet(b)).ToList();
+        var updatedBullet = Bullet.MoveBullet(incomingTank.Bullet);
+
         return incomingTank with
         {
-            Bullets = updatedBullets
+            Bullet = updatedBullet
         };
     }
 

@@ -15,7 +15,7 @@ public record TankState
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }
-    public List<BulletState>? Bullets { get; init; } = new();
+    public BulletState? Bullet { get; init; } = new();
 }
 
 public record BulletState
