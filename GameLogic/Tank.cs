@@ -22,7 +22,7 @@ public record Tank
         var turnedShip = CalculateNewAngleAndSpeed(tank);
         var movedShip = CalculateNewPosition(turnedShip);
         var shootingShip = CalculateShooting(movedShip);
-        return movedShip;
+        return shootingShip;
     }
 
     private static Tank CalculateNewAngleAndSpeed(Tank tank)
