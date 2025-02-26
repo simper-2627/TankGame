@@ -89,7 +89,7 @@ public class Game
                 {
                     updatedTank = updatedTank with
                     {
-                        Bullet = Bullet.MoveBullet(updatedTank.Bullet)
+                        Bullet = Bullet.MoveBullet(updatedTank)
                     };
                 }
                 return updatedTank;

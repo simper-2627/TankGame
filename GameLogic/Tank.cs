@@ -13,7 +13,7 @@ public record Tank
     public bool Shooting { get; init; }
     public bool MovingBackward { get; init; }
     public bool LastDirectionWasBackwards { get; init; }
-    public Bullet Bullet { get; set; } = new();
+    //public Bullet Bullet { get; set; } = new();
 
     private const int ForwardMovementSpeedConst = 8;
     private const int BackwardMovementSpeedConst = -6;
@@ -101,24 +101,22 @@ public record Tank
         return newSprite;
     }
 
-    private static Tank CalculateShooting(Tank incomingTank)
+    private static Bullet CalculateShooting(Tank incomingTank)
     {
+        Bullet bullet = new();
         if (incomingTank.Shooting)
         {
-            var bullet = new Bullet
+            bullet = new Bullet
             {
                 PositionX = incomingTank.PositionX,
                 PositionY = incomingTank.PositionY,
                 Angle = incomingTank.Angle
             };
-            incomingTank.Bullet = bullet;
+            
         }
-        var updatedBullet = Bullet.MoveBullet(incomingTank.Bullet);
+        var updatedBullet = Bullet.MoveBullet(incomingTank, bullet);
 
-        return incomingTank with
-        {
-            Bullet = updatedBullet
-        };
+        return updatedBullet;
     }
 
 }
