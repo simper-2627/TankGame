@@ -7,6 +7,7 @@ public record GameState
     public GameStatus Status { get; init; }
     public string? Name { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
+    public IEnumerable<BulletState>? Bullets { get; init; }
 }
 
 public record TankState

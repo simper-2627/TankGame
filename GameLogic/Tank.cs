@@ -25,8 +25,8 @@ public record Tank
     {
         var turnedShip = CalculateNewAngleAndSpeed(tank);
         var movedShip = CalculateNewPosition(turnedShip);
-        var shootingShip = CalculateShooting(movedShip);
-        return shootingShip;
+        CalculateShooting(movedShip);
+        return movedShip;
     }
 
     private static Tank CalculateNewAngleAndSpeed(Tank tank)
@@ -114,9 +114,8 @@ public record Tank
             };
             
         }
-        var updatedBullet = Bullet.MoveBullet(incomingTank, bullet);
+        var updatedBullet = Bullet.MoveBullet(bullet);
 
         return updatedBullet;
     }
-
 }

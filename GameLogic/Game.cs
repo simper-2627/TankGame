@@ -33,12 +33,7 @@ public class Game
                 PositionX = t.PositionX,
                 PositionY = t.PositionY,
                 Angle = t.Angle,
-                Bullet = t.Bullet != null ? new BulletState()
-                {
-                    PositionX = t.Bullet.PositionX,
-                    PositionY = t.Bullet.PositionY,
-                    Angle = t.Bullet.Angle
-                } : null
+
             }).ToArray()
         };
     }
@@ -72,26 +67,23 @@ public class Game
                     LastDirectionWasBackwards = request.LastDirectionBackwards
                 };
 
-                if (updatedTank.Shooting && updatedTank.Bullet == null)
+                if (updatedTank.Shooting)
                 {
-                    updatedTank = updatedTank with
+                    var bullet = new Bullet
                     {
-                        Bullet = new Bullet
-                        {
-                            PositionX = updatedTank.PositionX,
-                            PositionY = updatedTank.PositionY,
-                            Angle = updatedTank.Angle
-                        }
+                        PositionX = updatedTank.PositionX,
+                        PositionY = updatedTank.PositionY,
+                        Angle = updatedTank.Angle
                     };
                 }
 
-                if (updatedTank.Bullet != null)
-                {
-                    updatedTank = updatedTank with
-                    {
-                        Bullet = Bullet.MoveBullet(updatedTank)
-                    };
-                }
+                //if (updatedTank.Bullet != null)
+                //{
+                //    updatedTank = updatedTank with
+                //    {
+                //        Bullet = Bullet.MoveBullet(updatedTank)
+                //    };
+                //}
                 return updatedTank;
             }
             return t;
