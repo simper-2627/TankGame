@@ -92,8 +92,6 @@ public class GameLoopRunner
                     if (!File.Exists($"{game.Name}.txt"))
                     {
                          File.Create($"{game.Name}.txt").Close();
-
-                        
                     }
 
                     lock (fileLock)
