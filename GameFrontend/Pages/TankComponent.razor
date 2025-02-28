@@ -104,7 +104,7 @@
 
         @foreach (var bullet in Bullets)
         {
-            <div style=@($@"{transitionConst}; position: absolute; top: {tank.Bullet.PositionY}px; left: {tank.Bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
+            <div style=@($@"{transitionConst}; position: absolute; top: {bullet.PositionY}px; left: {bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
         }
 
     </div>
