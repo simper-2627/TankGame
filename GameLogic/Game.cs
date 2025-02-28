@@ -12,6 +12,7 @@ public class Game
     public readonly ConcurrentBag<string> ConnectedClients = new();
     public string? Name { get; init; }
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
+    public IEnumerable<Bullet> Bullets { get; internal set; } = [];
     public CancellationTokenSource CancellationTokenSource { get; set; } = new CancellationTokenSource();
     public GameLoopRunner loopRunner { get; set; }
 
@@ -34,6 +35,12 @@ public class Game
                 PositionY = t.PositionY,
                 Angle = t.Angle,
 
+            }).ToArray(),
+            Bullets = Bullets.Select(b => new BulletState()
+            {
+                PositionX = b.PositionX,
+                PositionY = b.PositionY,
+                Angle = b.Angle
             }).ToArray()
         };
     }
@@ -75,6 +82,8 @@ public class Game
                         PositionY = updatedTank.PositionY,
                         Angle = updatedTank.Angle
                     };
+                    bullet = Bullet.MoveBullet(bullet);
+                    Bullets = Bullets.Append(bullet);
                 }
 
                 //if (updatedTank.Bullet != null)

@@ -3,6 +3,7 @@
 @code {
     [Parameter]
     public TankState tank { get; set; }
+    public IEnumerable<BulletState> Bullets { get; set; }
     private const string transitionConst = "transition: all 0.1s linear";
     private int size = 60;
     private string color1 = "FFE100";
@@ -101,7 +102,7 @@
           </g>
        </svg>
 
-        @if (tank.Bullet != null)
+        @foreach (var bullet in Bullets)
         {
             <div style=@($@"{transitionConst}; position: absolute; top: {tank.Bullet.PositionY}px; left: {tank.Bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
         }

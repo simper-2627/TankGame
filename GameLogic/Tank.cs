@@ -25,7 +25,7 @@ public record Tank
     {
         var turnedShip = CalculateNewAngleAndSpeed(tank);
         var movedShip = CalculateNewPosition(turnedShip);
-        CalculateShooting(movedShip);
+        //CalculateShooting(movedShip);
         return movedShip;
     }
 
@@ -101,21 +101,21 @@ public record Tank
         return newSprite;
     }
 
-    private static Bullet CalculateShooting(Tank incomingTank)
-    {
-        Bullet bullet = new();
-        if (incomingTank.Shooting)
-        {
-            bullet = new Bullet
-            {
-                PositionX = incomingTank.PositionX,
-                PositionY = incomingTank.PositionY,
-                Angle = incomingTank.Angle
-            };
+    //private static Bullet CalculateShooting(Tank incomingTank)
+    //{
+    //    Bullet bullet = new();
+    //    if (incomingTank.Shooting)
+    //    {
+    //        bullet = new Bullet
+    //        {
+    //            PositionX = incomingTank.PositionX,
+    //            PositionY = incomingTank.PositionY,
+    //            Angle = incomingTank.Angle
+    //        };
             
-        }
-        var updatedBullet = Bullet.MoveBullet(bullet);
+    //    }
+    //    var updatedBullet = Bullet.MoveBullet(bullet);
 
-        return updatedBullet;
-    }
+    //    return updatedBullet;
+    //}
 }

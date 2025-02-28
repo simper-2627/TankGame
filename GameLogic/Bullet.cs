@@ -16,13 +16,17 @@ namespace GameLogic
 
         public static Bullet MoveBullet(Bullet bullet)
         {
+            if (bullet.PositionX < 0 || bullet.PositionX > BoardSize || bullet.PositionY < 0 || bullet.PositionY > BoardSize)
+            {
+                return null;
+            }
             double radians = Math.PI * bullet.Angle / 180.0;
             var deltaX = (int)(Speed * Math.Cos(radians));
             var deltaY = (int)(Speed * Math.Sin(radians));
             var newBullet = bullet with
             {
-                PositionX = Math.Clamp(bullet.PositionX + deltaX, 0, BoardSize),
-                PositionY = Math.Clamp(bullet.PositionY + deltaY, 0, BoardSize)
+                PositionX = bullet.PositionX + deltaX,
+                PositionY = bullet.PositionY + deltaY
             };
             return newBullet;
         }
