@@ -10,7 +10,7 @@
   <PlayerControls GameName=@GameName PlayerId=PlayerId>
   @foreach (var tank in game.Tanks)
     {
-      <TankComponent Tank=tank />
+      <TankComponent Tank=tank Bullets=game.Bullets/>
     }
     </PlayerControls>
 }
