@@ -5,73 +5,81 @@
 @implements IDisposable
 
 <div>
-  Select box and control with "WASD"
+    Select box and control with "WASD"
 </div>
 <div tabindex="0" 
-  class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
-  style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
-  @onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur"
+class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
+style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
+@onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur"
 >
-  @ChildContent
+    @ChildContent
 </div>
 <style>
-  .game-board:focus {
+    .game-board:focus {
     border-color: blue !important;
     background-color: rgb(240, 240, 240);
-  }
+    }
 </style>
 
 @code {
-  [Parameter]
-  public RenderFragment ChildContent { get; set; }
-  [Parameter]
-  public string GameName { get; set; }
-  [Parameter]
-  public Guid PlayerId { get; set; }
-  private const int boardSize = 700 + 50;
-  private string[] movementKeys = ["w", "a", "s", "d"];
-  private const double inputCheckInterval = 0.01;
-  private PlayerInputRequest? lastSentInput = null;
-  private HashSet<string> pressedKeys = new HashSet<string>();
-  private Timer? sendInputTimer;
-  protected override async Task OnInitializedAsync()
-  {
-    sendInputTimer = new Timer(
-      SendInputIfDifferent,
-      null,
-      TimeSpan.Zero,
-      TimeSpan.FromSeconds(inputCheckInterval)); // Executes every second
-  }
-  private void handleKeyDown(KeyboardEventArgs e)
-  {
-    if (movementKeys.Contains(e.Key))
-      pressedKeys.Add(e.Key);
-  }
-  private void handleKeyUp(KeyboardEventArgs e)
-  {
-    pressedKeys.Remove(e.Key);
-  }
-  private void handleBlur()
-  {
-    pressedKeys = new HashSet<string>();
-  }
-  private void SendInputIfDifferent(object? state)
-  {
-    @if (PlayerId == null || GameName == null)
-      return;
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+    [Parameter]
+    public string GameName { get; set; }
+    [Parameter]
+    public Guid PlayerId { get; set; }
+    private bool lastDirectionBackwards { get; set; } = false;
+    private const int boardSize = 700 + 50;
+    private string[] movementKeys = ["w", "a", "s", "d", " "];
+    private const double inputCheckInterval = 0.01;
+    private PlayerInputRequest? lastSentInput = null;
+    private HashSet<string> pressedKeys = new HashSet<string>();
+    private Timer? sendInputTimer;
+    protected override async Task OnInitializedAsync()
+    {
+        sendInputTimer = new Timer(
+          SendInputIfDifferent,
+          null,
+          TimeSpan.Zero,
+          TimeSpan.FromSeconds(inputCheckInterval)); // Executes every second
+    }
+    private void handleKeyDown(KeyboardEventArgs e)
+    {
+        if (movementKeys.Contains(e.Key))
+            pressedKeys.Add(e.Key);
+    }
+    private void handleKeyUp(KeyboardEventArgs e)
+    {
+        pressedKeys.Remove(e.Key);
+    }
+    private void handleBlur()
+    {
+        pressedKeys = new HashSet<string>();
+    }
+    private void SendInputIfDifferent(object? state)
+    {
+        @if (PlayerId == null || GameName == null)
+            return;
 
-    var forward = pressedKeys.Contains("w");
-    var left = pressedKeys.Contains("a") && !pressedKeys.Contains("d");
-    var right = !pressedKeys.Contains("a") && pressedKeys.Contains("d");
+        var forward = pressedKeys.Contains("w");
+        var left = pressedKeys.Contains("a") && !pressedKeys.Contains("d");
+        var right = !pressedKeys.Contains("a") && pressedKeys.Contains("d");
+        var backward = pressedKeys.Contains("s");
+        var shoot = pressedKeys.Contains(" ");
+        if (pressedKeys.Contains("s")) { lastDirectionBackwards = true; }
+        else if (pressedKeys.Contains("w")) { lastDirectionBackwards = false; }
 
-    var movementMessage = new PlayerInputRequest
+        var movementMessage = new PlayerInputRequest
       {
         GameName = GameName,
         PlayerId = (Guid)PlayerId,
         Forward = forward,
         Left = left,
         Right = right,
-      };
+        Shoot = shoot,
+        Backward = backward,
+        LastDirectionBackwards = lastDirectionBackwards,
+       };
       
     if (movementMessage != lastSentInput)
     {

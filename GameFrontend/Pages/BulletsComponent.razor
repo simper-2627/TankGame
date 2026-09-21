@@ -1,0 +1,12 @@
+﻿@using GameLogic
+
+@foreach (var bullet in Bullets)
+        {
+            if (bullet is null) continue;
+            <div style=@($@"{transitionConst}; position: absolute; top: {bullet.PositionY}px; left: {bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
+        }
+@code {
+    [Parameter]
+    public IEnumerable<BulletState> Bullets { get; set; }
+    private const string transitionConst = "transition: all 0.1s linear";
+}

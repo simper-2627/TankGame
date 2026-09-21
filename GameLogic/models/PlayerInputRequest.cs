@@ -6,4 +6,7 @@ public record PlayerInputRequest
   public required bool Forward { get; init; }
   public required bool Left { get; init; }
   public required bool Right { get; init; }
+  public required bool Backward { get; init; }
+  public required bool Shoot { get; init; }
+  public required bool LastDirectionBackwards { get; init; }
 }
