@@ -9,7 +9,7 @@ public class GameLoopRunner
 
     private int tickcounter = 0;
 
-    private ReplaySaver saver;
+    private ReplaySaver? saver;
     public GameLoopRunner(Game game)
     {
         this.game = game;
@@ -59,7 +59,7 @@ public class GameLoopRunner
         //Console.WriteLine();
         game.Tanks = game.Tanks.Select(Tank.ProcessTankMovement).ToArray();
 
-        saver.SaveTick(game.Tanks, tickcounter, game.Name);
+        saver?.SaveTick(game.Tanks, tickcounter, game.Name ?? string.Empty);
 
         await game.BroadcastUpdate();
     }
