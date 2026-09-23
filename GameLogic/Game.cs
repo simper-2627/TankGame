@@ -66,12 +66,11 @@ public class Game
 
                 var updatedTank = t with
                 {
-                    MovingForward = request.Forward,
+                    MovingUp = request.Up,
                     MovingLeft = request.Left,
                     MovingRight = request.Right,
                     Shooting = request.Shoot,
-                    MovingBackward = request.Backward,
-                    LastDirectionWasBackwards = request.LastDirectionBackwards
+                    MovingDown = request.Down,
                 };
 
                 if (updatedTank.Shooting)

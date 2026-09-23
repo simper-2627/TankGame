@@ -67,12 +67,11 @@ public class UnitTest1
         {
             GameName = "TestGame",
             PlayerId = playerId,
-            Forward = false,
+            Up = false,
             Left = false,
             Right = false,
-            Backward = false,
+            Down = false,
             Shoot = true,
-            LastDirectionBackwards = false
         };
 
         game.ReceiveUserInput(playerInput);

@@ -7,19 +7,15 @@ public record Tank
     public int PositionX { get; init; } = 50;
     public int Angle { get; init; } = -45;
     public int Speed { get; init; } = 0;
-    public bool MovingForward { get; init; }
+    public bool MovingUp { get; init; }
     public bool MovingLeft { get; init; }
     public bool MovingRight { get; init; }
     public bool Shooting { get; init; }
-    public bool MovingBackward { get; init; }
-    public bool LastDirectionWasBackwards { get; init; }
+    public bool MovingDown { get; init; }
     //public Bullet Bullet { get; set; } = new();
 
-    private const int ForwardMovementSpeedConst = 8;
-    private const int BackwardMovementSpeedConst = -6;
-    private const int MovementAngleConst = 30;
+    private const int MovementSpeedConst = 8;
     private const int BoardSize = 700;
-    private const int DefaultSpeedDelta = -6;
 
     public static Tank ProcessTankMovement(Tank tank)
     {
@@ -31,74 +27,33 @@ public record Tank
 
     private static Tank CalculateNewAngleAndSpeed(Tank tank)
     {
-        int speedDelta;
-        var nextAngle = tank.Angle;
-        if (tank.MovingLeft)
+        var netX = (tank.MovingRight ? 1 : 0) - (tank.MovingLeft ? 1 : 0);
+        var netY = (tank.MovingDown ? 1 : 0) - (tank.MovingUp ? 1 : 0);
+
+        if (netX == 0 && netY == 0)
         {
-            nextAngle -= MovementAngleConst;
-        }
-        else if (tank.MovingRight)
-        {
-            nextAngle += MovementAngleConst;
-        }
-        if (tank.MovingForward)
-        {
-            speedDelta = tank.MovingForward ? ForwardMovementSpeedConst : (-1 * ForwardMovementSpeedConst);
+            return tank with { Speed = 0 };
         }
 
-        else if (tank.MovingBackward)
+        var newAngle = (int)Math.Round(Math.Atan2(netY, netX) * 180.0 / Math.PI);
+        return tank with
         {
-            speedDelta = tank.MovingBackward ? ForwardMovementSpeedConst : (1 * ForwardMovementSpeedConst);
-        }
-        else
-        {
-            speedDelta = BackwardMovementSpeedConst;
-        }
-
-        var newSpeed = Math.Clamp(
-        tank.Speed + speedDelta,
-        0,
-        10 * ForwardMovementSpeedConst
-      );
-
-        var turnedShip = tank with
-        {
-            Speed = newSpeed,
-            Angle = nextAngle,
+            Angle = newAngle,
+            Speed = MovementSpeedConst,
         };
-        return turnedShip;
     }
 
     private static Tank CalculateNewPosition(Tank incomingTank)
     {
-        var newSprite = incomingTank;
-        double backwardSpeedModifier = 0.65;
-
         double radians = Math.PI * incomingTank.Angle / 180.0;
         var deltaX = (int)(incomingTank.Speed * Math.Cos(radians));
         var deltaY = (int)(incomingTank.Speed * Math.Sin(radians));
-        var backDeltaX = (int)(incomingTank.Speed * Math.Cos(radians) * backwardSpeedModifier);
-        var backDeltaY = (int)(incomingTank.Speed * Math.Sin(radians) * backwardSpeedModifier);
 
-        if (incomingTank.LastDirectionWasBackwards)
+        return incomingTank with
         {
-            newSprite = incomingTank with
-            {
-                PositionX = Math.Clamp(incomingTank.PositionX - backDeltaX, 0, BoardSize),
-                PositionY = Math.Clamp(incomingTank.PositionY - backDeltaY, 0, BoardSize)
-            };
-
-        }
-        else
-        {
-            newSprite = incomingTank with
-            {
-                PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, BoardSize),
-                PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, BoardSize)
-            };
-
-        }
-        return newSprite;
+            PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, BoardSize),
+            PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, BoardSize)
+        };
     }
 
     //private static Bullet CalculateShooting(Tank incomingTank)
