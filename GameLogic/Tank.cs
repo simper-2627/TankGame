@@ -3,9 +3,6 @@ namespace GameLogic;
 public record Tank
 {
     public const int Size = 60;
-    private const int VisualTopOffset = 50;
-    private const int HitboxInset = 6;
-    private const int HitboxSize = Size - (HitboxInset * 2);
     public Guid Id { get; } = Guid.NewGuid();
     public int PositionY { get; init; } = 50;
     public int PositionX { get; init; } = 50;
@@ -19,61 +16,68 @@ public record Tank
     public bool LastDirectionWasBackwards { get; init; }
     //public Bullet Bullet { get; set; } = new();
 
-    private const int ForwardMovementSpeedConst = 8;
-    private const int BackwardMovementSpeedConst = -6;
-    private const int MovementAngleConst = 30;
-    private const int DefaultSpeedDelta = -6;
-
     public static Tank ProcessTankMovement(Tank tank)
     {
-        return ProcessTankMovement(tank, MapCatalog.DefaultMap);
+        return ProcessTankMovement(tank, MapCatalog.DefaultMap, new DeveloperGameSettings());
     }
 
     public static Tank ProcessTankMovement(Tank tank, GameMap map)
     {
-        var turnedShip = CalculateNewAngleAndSpeed(tank);
-        var movedShip = CalculateNewPosition(turnedShip, map);
+        return ProcessTankMovement(tank, map, new DeveloperGameSettings());
+    }
+
+    public static Tank ProcessTankMovement(Tank tank, GameMap map, DeveloperGameSettings settings)
+    {
+        var turnedShip = CalculateNewAngleAndSpeed(tank, settings);
+        var movedShip = CalculateNewPosition(turnedShip, map, settings);
         //CalculateShooting(movedShip);
         return movedShip;
     }
 
     public static RectangleArea GetCollisionArea(Tank tank) =>
-        new(
-            tank.PositionX + HitboxInset,
-            tank.PositionY - VisualTopOffset + HitboxInset,
-            HitboxSize,
-            HitboxSize);
+        GetCollisionArea(tank, new DeveloperGameSettings());
 
-    private static Tank CalculateNewAngleAndSpeed(Tank tank)
+    public static RectangleArea GetCollisionArea(Tank tank, DeveloperGameSettings settings)
+    {
+        var hitboxInset = Math.Clamp(settings.HitboxInset, 0, Size / 2 - 1);
+        var hitboxSize = Size - (hitboxInset * 2);
+        return new(
+            tank.PositionX + hitboxInset,
+            tank.PositionY - settings.VisualTopOffset + hitboxInset,
+            hitboxSize,
+            hitboxSize);
+    }
+
+    private static Tank CalculateNewAngleAndSpeed(Tank tank, DeveloperGameSettings settings)
     {
         int speedDelta;
         var nextAngle = tank.Angle;
         if (tank.MovingLeft)
         {
-            nextAngle -= MovementAngleConst;
+            nextAngle -= settings.TurnDegrees;
         }
         else if (tank.MovingRight)
         {
-            nextAngle += MovementAngleConst;
+            nextAngle += settings.TurnDegrees;
         }
         if (tank.MovingForward)
         {
-            speedDelta = tank.MovingForward ? ForwardMovementSpeedConst : (-1 * ForwardMovementSpeedConst);
+            speedDelta = settings.ForwardAcceleration;
         }
 
         else if (tank.MovingBackward)
         {
-            speedDelta = tank.MovingBackward ? ForwardMovementSpeedConst : (1 * ForwardMovementSpeedConst);
+            speedDelta = settings.ForwardAcceleration;
         }
         else
         {
-            speedDelta = BackwardMovementSpeedConst;
+            speedDelta = settings.BrakeAcceleration;
         }
 
         var newSpeed = Math.Clamp(
         tank.Speed + speedDelta,
         0,
-        10 * ForwardMovementSpeedConst
+        settings.MaxSpeed
       );
 
         var turnedShip = tank with
@@ -84,31 +88,30 @@ public record Tank
         return turnedShip;
     }
 
-    private static Tank CalculateNewPosition(Tank incomingTank, GameMap map)
+    private static Tank CalculateNewPosition(Tank incomingTank, GameMap map, DeveloperGameSettings settings)
     {
-        double backwardSpeedModifier = 0.65;
-
         double radians = Math.PI * incomingTank.Angle / 180.0;
         var deltaX = (int)(incomingTank.Speed * Math.Cos(radians));
         var deltaY = (int)(incomingTank.Speed * Math.Sin(radians));
-        var backDeltaX = (int)(incomingTank.Speed * Math.Cos(radians) * backwardSpeedModifier);
-        var backDeltaY = (int)(incomingTank.Speed * Math.Sin(radians) * backwardSpeedModifier);
+        var backDeltaX = (int)(incomingTank.Speed * Math.Cos(radians) * settings.BackwardSpeedMultiplier);
+        var backDeltaY = (int)(incomingTank.Speed * Math.Sin(radians) * settings.BackwardSpeedMultiplier);
 
         if (incomingTank.LastDirectionWasBackwards)
         {
-            return MoveUntilBlocked(incomingTank, -backDeltaX, -backDeltaY, map);
+            return MoveUntilBlocked(incomingTank, -backDeltaX, -backDeltaY, map, settings);
         }
 
-        return MoveUntilBlocked(incomingTank, deltaX, deltaY, map);
+        return MoveUntilBlocked(incomingTank, deltaX, deltaY, map, settings);
     }
 
-    private static Tank MoveUntilBlocked(Tank tank, int deltaX, int deltaY, GameMap map)
+    private static Tank MoveUntilBlocked(Tank tank, int deltaX, int deltaY, GameMap map, DeveloperGameSettings settings)
     {
         var targetX = Math.Clamp(tank.PositionX + deltaX, 0, map.Width - Size);
         var targetY = Math.Clamp(tank.PositionY + deltaY, 0, map.Height - Size);
         var totalX = targetX - tank.PositionX;
         var totalY = targetY - tank.PositionY;
-        var steps = Math.Max(Math.Abs(totalX), Math.Abs(totalY));
+        var stepPixels = Math.Max(1, settings.CollisionStepPixels);
+        var steps = (int)Math.Ceiling(Math.Max(Math.Abs(totalX), Math.Abs(totalY)) / (double)stepPixels);
 
         if (steps == 0)
         {
@@ -124,7 +127,7 @@ public record Tank
                 PositionY = tank.PositionY + (int)Math.Round(totalY * step / (double)steps)
             };
 
-            if (map.Blocks(GetCollisionArea(nextTank)))
+            if (map.Blocks(GetCollisionArea(nextTank, settings)))
             {
                 return lastValidTank with { Speed = 0 };
             }
@@ -134,6 +137,13 @@ public record Tank
 
         return lastValidTank;
     }
+
+    public static RectangleArea GetVisualArea(Tank tank) =>
+        new(
+            tank.PositionX,
+            tank.PositionY - new DeveloperGameSettings().VisualTopOffset,
+            Size,
+            Size);
 
     //private static Bullet CalculateShooting(Tank incomingTank)
     //{

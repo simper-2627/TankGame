@@ -57,7 +57,7 @@ public class GameLoopRunner
         //    Console.WriteLine(tank);
         //}
         //Console.WriteLine();
-        game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map)).ToArray();
+        game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, game.DeveloperSettings)).ToArray();
         game.Bullets = game.Bullets
             .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
             .Where(bullet => bullet is not null)

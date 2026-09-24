@@ -14,11 +14,14 @@ public class Lobby
     this.context = context;
   }
 
-  public Game CreateGame(string name, string? mapName = null)
+  public Game CreateGame(string name, string? mapName = null, string? matchType = null)
   {
     var newGame = new Game(context)
     {
       Name = name,
+      MatchType = matchType == GameMatchTypes.DeveloperSimulation
+        ? GameMatchTypes.DeveloperSimulation
+        : GameMatchTypes.Multiplayer,
       Map = MapCatalog.GetByName(mapName)
     };
 

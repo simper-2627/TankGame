@@ -16,7 +16,7 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
-  public async Task CreateGame(string name, string? mapName = null)
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -24,7 +24,7 @@ public class LobbyHub : Hub
       throw new Exception($"cannot create game, name already taken: {name}");
     }
 
-    var game = lobby.CreateGame(name, mapName);
+    var game = lobby.CreateGame(name, mapName, matchType);
     Console.WriteLine($"created game: {name}");
 
     var playerId = game.JoinGame();
@@ -68,6 +68,13 @@ public class LobbyHub : Hub
     Console.WriteLine(request);
     var game = lobby.Games.First(g => g.Name == request.GameName);
     game.ReceiveUserInput(request);
+  }
+
+  public async Task UpdateDeveloperSettings(string gameName, DeveloperGameSettings settings)
+  {
+    var game = lobby.Games.First(g => g.Name == gameName);
+    game.UpdateDeveloperSettings(settings);
+    await game.BroadcastUpdate();
   }
 
   public override async Task OnDisconnectedAsync(Exception? exception)
