@@ -18,13 +18,18 @@ public record Tank
     private const int ForwardMovementSpeedConst = 8;
     private const int BackwardMovementSpeedConst = -6;
     private const int MovementAngleConst = 30;
-    private const int BoardSize = 700;
     private const int DefaultSpeedDelta = -6;
+    private const int TankSize = 60;
 
     public static Tank ProcessTankMovement(Tank tank)
     {
+        return ProcessTankMovement(tank, MapCatalog.DefaultMap);
+    }
+
+    public static Tank ProcessTankMovement(Tank tank, GameMap map)
+    {
         var turnedShip = CalculateNewAngleAndSpeed(tank);
-        var movedShip = CalculateNewPosition(turnedShip);
+        var movedShip = CalculateNewPosition(turnedShip, map);
         //CalculateShooting(movedShip);
         return movedShip;
     }
@@ -69,7 +74,7 @@ public record Tank
         return turnedShip;
     }
 
-    private static Tank CalculateNewPosition(Tank incomingTank)
+    private static Tank CalculateNewPosition(Tank incomingTank, GameMap map)
     {
         var newSprite = incomingTank;
         double backwardSpeedModifier = 0.65;
@@ -84,8 +89,8 @@ public record Tank
         {
             newSprite = incomingTank with
             {
-                PositionX = Math.Clamp(incomingTank.PositionX - backDeltaX, 0, BoardSize),
-                PositionY = Math.Clamp(incomingTank.PositionY - backDeltaY, 0, BoardSize)
+                PositionX = Math.Clamp(incomingTank.PositionX - backDeltaX, 0, map.Width - TankSize),
+                PositionY = Math.Clamp(incomingTank.PositionY - backDeltaY, 0, map.Height - TankSize)
             };
 
         }
@@ -93,12 +98,14 @@ public record Tank
         {
             newSprite = incomingTank with
             {
-                PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, BoardSize),
-                PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, BoardSize)
+                PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, map.Width - TankSize),
+                PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, map.Height - TankSize)
             };
 
         }
-        return newSprite;
+
+        var tankArea = new RectangleArea(newSprite.PositionX, newSprite.PositionY, TankSize, TankSize);
+        return map.Blocks(tankArea) ? incomingTank with { Speed = 0 } : newSprite;
     }
 
     //private static Bullet CalculateShooting(Tank incomingTank)

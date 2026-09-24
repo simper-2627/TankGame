@@ -57,7 +57,12 @@ public class GameLoopRunner
         //    Console.WriteLine(tank);
         //}
         //Console.WriteLine();
-        game.Tanks = game.Tanks.Select(Tank.ProcessTankMovement).ToArray();
+        game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map)).ToArray();
+        game.Bullets = game.Bullets
+            .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
+            .Where(bullet => bullet is not null)
+            .Cast<Bullet>()
+            .ToArray();
 
         saver?.SaveTick(game.Tanks, tickcounter, game.Name ?? string.Empty);
 
