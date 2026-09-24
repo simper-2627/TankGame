@@ -16,7 +16,7 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
-  public async Task CreateGame(string name)
+  public async Task CreateGame(string name, string? mapName = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -24,7 +24,7 @@ public class LobbyHub : Hub
       throw new Exception($"cannot create game, name already taken: {name}");
     }
 
-    var game = lobby.CreateGame(name);
+    var game = lobby.CreateGame(name, mapName);
     Console.WriteLine($"created game: {name}");
 
     var playerId = game.JoinGame();

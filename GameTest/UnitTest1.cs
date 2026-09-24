@@ -56,7 +56,7 @@ public class UnitTest1
     }
 
     [Fact]
-    public void BulletMotion()
+    public async Task BulletMotion()
     {
         
         var hubContext = new TestHubContext();
@@ -78,17 +78,156 @@ public class UnitTest1
         game.ReceiveUserInput(playerInput);
 
         var gameState = game.GetGameState();
-        var bullet = gameState.Bullets.FirstOrDefault();
+        var bullet = gameState.Bullets!.FirstOrDefault();
         Assert.NotNull(bullet);
         Assert.Equal(game.Tanks.First().PositionX, bullet.PositionX);
         Assert.Equal(game.Tanks.First().PositionY, bullet.PositionY);
 
-        game.loopRunner.ProcessGameTick().Wait();
+        await game.loopRunner.ProcessGameTick();
 
         var updatedGameState = game.GetGameState();
-        var updatedBullet = updatedGameState.Bullets.FirstOrDefault();
+        var updatedBullet = updatedGameState.Bullets!.FirstOrDefault();
         Assert.NotNull(updatedBullet);
-        Assert.NotEqual(bullet.PositionX, updatedBullet.PositionX);
-        Assert.NotEqual(bullet.PositionY, updatedBullet.PositionY);
+        Assert.True(
+            bullet.PositionX != updatedBullet.PositionX ||
+            bullet.PositionY != updatedBullet.PositionY);
+    }
+
+    [Fact]
+    public void ObstacleDetectsPointInsideAndOutside()
+    {
+        var obstacle = new Obstacle(10, 20, 30, 40);
+
+        Assert.True(obstacle.ContainsPoint(15, 25));
+        Assert.False(obstacle.ContainsPoint(5, 25));
+    }
+
+    [Fact]
+    public void ObstacleDetectsRectangleIntersections()
+    {
+        var obstacle = new Obstacle(100, 100, 50, 50);
+
+        Assert.True(obstacle.Intersects(new RectangleArea(125, 125, 25, 25)));
+        Assert.False(obstacle.Intersects(new RectangleArea(200, 200, 25, 25)));
+    }
+
+    [Fact]
+    public void TankMovementStaysInsideMapBounds()
+    {
+        var map = new GameMap("Test", 120, 120, [], [new MapSpawnPoint(0, 0, 0)]);
+        var tank = new Tank { PositionX = 100, PositionY = 100, MovingForward = true, Speed = 80 };
+
+        var movedTank = Tank.ProcessTankMovement(tank, map);
+
+        Assert.InRange(movedTank.PositionX, 0, 60);
+        Assert.InRange(movedTank.PositionY, 0, 60);
+    }
+
+    [Fact]
+    public void TankMovementIsBlockedByObstacle()
+    {
+        var map = new GameMap("Test", 300, 300, [new Obstacle(80, 30, 80, 80)], [new MapSpawnPoint(0, 0, 0)]);
+        var tank = new Tank { PositionX = 50, PositionY = 50, Angle = 0, MovingForward = true, Speed = 30 };
+
+        var movedTank = Tank.ProcessTankMovement(tank, map);
+
+        Assert.Equal(tank.PositionX, movedTank.PositionX);
+        Assert.Equal(tank.PositionY, movedTank.PositionY);
+    }
+
+    [Fact]
+    public void BulletStopsWhenItHitsObstacle()
+    {
+        var map = new GameMap("Test", 300, 300, [new Obstacle(65, 50, 30, 30)], [new MapSpawnPoint(0, 0, 0)]);
+        var bullet = new Bullet { PositionX = 50, PositionY = 60, Angle = 0 };
+
+        var movedBullet = Bullet.MoveBullet(bullet, map);
+
+        Assert.Null(movedBullet);
+    }
+
+    [Fact]
+    public void BulletStopsWhenItLeavesMap()
+    {
+        var map = new GameMap("Test", 60, 60, [], [new MapSpawnPoint(0, 0, 0)]);
+        var bullet = new Bullet { PositionX = 55, PositionY = 20, Angle = 0 };
+
+        var movedBullet = Bullet.MoveBullet(bullet, map);
+
+        Assert.Null(movedBullet);
+    }
+
+    [Fact]
+    public void GameStateIncludesCurrentMap()
+    {
+        var hubContext = new TestHubContext();
+        var game = new Game(hubContext);
+
+        var gameState = game.GetGameState();
+
+        Assert.NotNull(gameState.Map);
+        Assert.Equal(game.Map.Name, gameState.Map.Name);
+    }
+
+    [Fact]
+    public void MapCatalogHasFixedMapsWithObstacles()
+    {
+        Assert.Equal(4, MapCatalog.FixedMaps.Count);
+        Assert.All(MapCatalog.FixedMaps, map => Assert.NotEmpty(map.Obstacles));
+    }
+
+    [Fact]
+    public void MapCatalogHasValidSpawnPointsOutsideObstacles()
+    {
+        Assert.All(MapCatalog.FixedMaps, map =>
+        {
+            Assert.NotEmpty(map.SpawnPoints);
+            Assert.All(map.SpawnPoints, spawnPoint =>
+            {
+                var spawnArea = new RectangleArea(spawnPoint.X, spawnPoint.Y, Tank.Size, Tank.Size);
+                Assert.False(map.Blocks(spawnArea));
+            });
+        });
+    }
+
+    [Fact]
+    public void MapCatalogFindsFixedMapByName()
+    {
+        var secondMap = MapCatalog.FixedMaps[1];
+
+        var selectedMap = MapCatalog.GetByName(secondMap.Name);
+
+        Assert.Equal(secondMap.Name, selectedMap.Name);
+    }
+
+    [Fact]
+    public void LobbyCreateGameUsesSelectedMap()
+    {
+        var hubContext = new TestHubContext();
+        var lobby = new Lobby(hubContext);
+        var selectedMap = MapCatalog.FixedMaps[2];
+
+        var game = lobby.CreateGame("selected-map-game", selectedMap.Name);
+
+        Assert.Equal(selectedMap.Name, game.Map.Name);
+        Assert.Equal(game.Map.Name, game.GetGameState().Map?.Name);
+    }
+
+    [Fact]
+    public void JoinGameUsesMapSpecificSpawnPoints()
+    {
+        var hubContext = new TestHubContext();
+        var game = new Game(hubContext)
+        {
+            Map = MapCatalog.FixedMaps[1]
+        };
+        var expectedSpawnPoint = game.Map.SpawnPoints[0];
+
+        var playerId = game.JoinGame();
+        var tank = game.Tanks.Single(tank => tank.Id == playerId);
+
+        Assert.Equal(expectedSpawnPoint.X, tank.PositionX);
+        Assert.Equal(expectedSpawnPoint.Y, tank.PositionY);
+        Assert.Equal(expectedSpawnPoint.Angle, tank.Angle);
     }
 }

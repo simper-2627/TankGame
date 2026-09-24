@@ -7,12 +7,22 @@
 
 @if (game != null)
 {
-  <PlayerControls GameName=@GameName PlayerId=PlayerId>
-  @foreach (var tank in game.Tanks)
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
+  </div>
+  <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.Width ?? 750)" BoardHeight="@(game.Map?.Height ?? 750)">
+    @if (game.Map?.Obstacles != null)
+    {
+      @foreach (var obstacle in game.Map.Obstacles)
+      {
+        <div style=@($@"position: absolute; top: {obstacle.Y}px; left: {obstacle.X}px; width: {obstacle.Width}px; height: {obstacle.Height}px; background: #343a40; border: 2px solid #111827;")></div>
+      }
+    }
+    @foreach (var tank in game.Tanks ?? [])
     {
       <TankComponent Tank=tank />
     }
-    <BulletsComponent Bullets=game.Bullets />
+    <BulletsComponent Bullets="@(game.Bullets ?? [])" />
     </PlayerControls>
 }
 
@@ -38,4 +48,5 @@
     signalR.HubConnection?.SendAsync(Messages.SubscribeToGame, GameName);
 
   }
+
 }

@@ -11,6 +11,7 @@ public class Game
     //public event Action? OnUpdate;
     public readonly ConcurrentBag<string> ConnectedClients = new();
     public string? Name { get; init; }
+    public GameMap Map { get; init; } = MapCatalog.DefaultMap;
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
     public CancellationTokenSource CancellationTokenSource { get; set; } = new CancellationTokenSource();
@@ -28,6 +29,7 @@ public class Game
         {
             Status = Status,
             Name = Name,
+            Map = Map,
             Tanks = Tanks.Select(t => new TankState()
             {
                 Id = t.Id,
@@ -52,7 +54,13 @@ public class Game
 
     public Guid JoinGame()
     {
-        var newTank = new Tank();
+        var spawnPoint = Map.SpawnPoints.ElementAt(Tanks.Count() % Map.SpawnPoints.Count);
+        var newTank = new Tank
+        {
+            PositionX = spawnPoint.X,
+            PositionY = spawnPoint.Y,
+            Angle = spawnPoint.Angle
+        };
         Tanks = Tanks.Append(newTank);
         return newTank.Id;
     }
@@ -82,7 +90,6 @@ public class Game
                         PositionY = updatedTank.PositionY,
                         Angle = updatedTank.Angle
                     };
-                    bullet = Bullet.MoveBullet(bullet);
                     Bullets = Bullets.Append(bullet);
                 }
 
@@ -100,6 +107,7 @@ public class Game
         .ToArray();
 
     }
+
 }
 
 public enum GameStatus
