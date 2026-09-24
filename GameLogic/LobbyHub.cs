@@ -58,7 +58,7 @@ public class LobbyHub : Hub
 
     var game = lobby.Games.First(g => g.Name == gameName);
 
-    game.ConnectedClients.Add(Context.ConnectionId);
+    game.ConnectedClients.TryAdd(Context.ConnectionId, 0);
 
   }
 
@@ -83,7 +83,7 @@ public class LobbyHub : Hub
 
     foreach (var game in lobby.Games)
     {
-      if (game.ConnectedClients.TryTake(out connectionId))
+      if (game.ConnectedClients.TryRemove(connectionId, out _))
       {
         Console.WriteLine($"Removed connection: {connectionId} from game {game.Name}");
       }

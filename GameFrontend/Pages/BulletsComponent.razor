@@ -3,7 +3,7 @@
 @foreach (var bullet in Bullets)
         {
             if (bullet is null) continue;
-            <div style=@($@"{transitionConst}; position: absolute; top: {bullet.PositionY}px; left: {bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
+            <div @key="bullet.Id" style=@($@"{transitionConst}; position: absolute; top: {bullet.PositionY}px; left: {bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%;")></div>
         }
 @code {
     [Parameter]

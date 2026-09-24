@@ -10,7 +10,7 @@ public class Game
 
     public GameStatus Status => GameStatus.Playing;
     //public event Action? OnUpdate;
-    public readonly ConcurrentBag<string> ConnectedClients = new();
+    public readonly ConcurrentDictionary<string, byte> ConnectedClients = new();
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
@@ -45,6 +45,7 @@ public class Game
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
             {
+                Id = b.Id,
                 PositionX = b.PositionX,
                 PositionY = b.PositionY,
                 Angle = b.Angle
@@ -54,7 +55,7 @@ public class Game
 
     public async Task BroadcastUpdate()
     {
-        await hubContext.Clients.Clients(ConnectedClients.ToArray()).SendAsync(Messages.GameUpdate, GetGameState());
+        await hubContext.Clients.Clients(ConnectedClients.Keys.ToArray()).SendAsync(Messages.GameUpdate, GetGameState());
     }
 
     public Guid JoinGame()

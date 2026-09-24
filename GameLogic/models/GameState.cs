@@ -43,6 +43,7 @@ public record TankState
 
 public record BulletState
 {
+    public Guid Id { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }

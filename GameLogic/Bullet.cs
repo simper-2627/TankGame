@@ -8,6 +8,7 @@ namespace GameLogic
 {
     public record Bullet
     {
+        public Guid Id { get; init; } = Guid.NewGuid();
         public int PositionX { get; init; }
         public int PositionY { get; init; }
         public int Angle { get; init; }

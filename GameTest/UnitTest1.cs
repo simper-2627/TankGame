@@ -6,6 +6,56 @@ namespace GameTest;
 
 public class UnitTest1
 {
+    [Fact]
+    public async Task BulletIdentitySurvivesMovementAndStateBroadcast()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+        game.ReceiveUserInput(new PlayerInputRequest { GameName = "bullets", PlayerId = id,
+            Forward = false, Backward = false, Left = false, Right = false,
+            Shoot = true, LastDirectionBackwards = false });
+        var before = game.GetGameState().Bullets!.Single();
+
+        await game.loopRunner.ProcessGameTick();
+
+        var after = game.GetGameState().Bullets!.Single();
+        Assert.NotEqual(Guid.Empty, before.Id);
+        Assert.Equal(before.Id, after.Id);
+        Assert.NotEqual(before.PositionX, after.PositionX);
+        Assert.NotEqual(new Bullet().Id, new Bullet().Id);
+    }
+
+    private sealed class TestCallerContext(string id) : HubCallerContext
+    {
+        public override string ConnectionId => id;
+        public override string? UserIdentifier => null;
+        public override System.Security.Claims.ClaimsPrincipal? User => null;
+        public override IDictionary<object, object?> Items { get; } = new Dictionary<object, object?>();
+        public override Microsoft.AspNetCore.Http.Features.IFeatureCollection Features { get; } = new Microsoft.AspNetCore.Http.Features.FeatureCollection();
+        public override CancellationToken ConnectionAborted => CancellationToken.None;
+        public override void Abort() { }
+    }
+
+    [Fact]
+    public async Task DisconnectOnlyRemovesItsOwnSubscription()
+    {
+        var lobby = new Lobby(new TestHubContext());
+        var game = lobby.CreateGame("subscribers");
+        var active = new LobbyHub(lobby) { Context = new TestCallerContext("active") };
+        var leaving = new LobbyHub(lobby) { Context = new TestCallerContext("leaving") };
+        active.SubscribeToGame("subscribers");
+        active.SubscribeToGame("subscribers");
+        leaving.SubscribeToGame("subscribers");
+
+        await leaving.OnDisconnectedAsync(null);
+
+        Assert.Single(game.ConnectedClients);
+        Assert.True(game.ConnectedClients.ContainsKey("active"));
+        var unrelated = new LobbyHub(lobby) { Context = new TestCallerContext("unrelated") };
+        await unrelated.OnDisconnectedAsync(null);
+        Assert.True(game.ConnectedClients.ContainsKey("active"));
+    }
+
     private sealed class PausingObstacles : IReadOnlyList<Obstacle>
     {
         public ManualResetEventSlim Entered { get; } = new(false);
