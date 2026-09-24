@@ -11,7 +11,7 @@ public class Game
     //public event Action? OnUpdate;
     public readonly ConcurrentBag<string> ConnectedClients = new();
     public string? Name { get; init; }
-    public GameMap Map { get; init; } = MapCatalog.DefaultMap;
+    public GameMap Map { get; private set; } = MapCatalog.DefaultMap;
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
     public CancellationTokenSource CancellationTokenSource { get; set; } = new CancellationTokenSource();
@@ -100,6 +100,19 @@ public class Game
         })
         .ToArray();
 
+    }
+
+    public async Task RotateMap()
+    {
+        Map = MapCatalog.NextMap(Map);
+        Tanks = Tanks.Select(tank => tank with
+        {
+            PositionX = Math.Clamp(tank.PositionX, 0, Map.Width - 60),
+            PositionY = Math.Clamp(tank.PositionY, 0, Map.Height - 60),
+            Speed = 0
+        }).ToArray();
+        Bullets = [];
+        await BroadcastUpdate();
     }
 }
 

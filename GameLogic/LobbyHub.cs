@@ -70,6 +70,12 @@ public class LobbyHub : Hub
     game.ReceiveUserInput(request);
   }
 
+  public async Task RotateMap(string gameName)
+  {
+    var game = lobby.Games.First(g => g.Name == gameName);
+    await game.RotateMap();
+  }
+
   public override async Task OnDisconnectedAsync(Exception? exception)
   {
     string? connectionId = Context.ConnectionId;

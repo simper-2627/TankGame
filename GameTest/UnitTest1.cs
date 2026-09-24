@@ -174,4 +174,28 @@ public class UnitTest1
         Assert.Equal(4, MapCatalog.FixedMaps.Count);
         Assert.All(MapCatalog.FixedMaps, map => Assert.NotEmpty(map.Obstacles));
     }
+
+    [Fact]
+    public void MapCatalogRotatesThroughFixedMaps()
+    {
+        var firstMap = MapCatalog.FixedMaps[0];
+        var secondMap = MapCatalog.FixedMaps[1];
+
+        var nextMap = MapCatalog.NextMap(firstMap);
+
+        Assert.Equal(secondMap.Name, nextMap.Name);
+    }
+
+    [Fact]
+    public async Task GameRotateMapChangesSharedMap()
+    {
+        var hubContext = new TestHubContext();
+        var game = new Game(hubContext);
+        var originalMap = game.Map;
+
+        await game.RotateMap();
+
+        Assert.NotEqual(originalMap.Name, game.Map.Name);
+        Assert.Equal(game.Map.Name, game.GetGameState().Map?.Name);
+    }
 }

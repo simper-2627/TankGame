@@ -79,4 +79,13 @@ public static class MapCatalog
     ];
 
     public static GameMap DefaultMap => FixedMaps[0];
+
+    public static GameMap NextMap(GameMap currentMap)
+    {
+        var currentIndex = FixedMaps
+            .Select((map, index) => new { map, index })
+            .FirstOrDefault(item => item.map.Name == currentMap.Name)?.index ?? -1;
+
+        return FixedMaps[(currentIndex + 1) % FixedMaps.Count];
+    }
 }
