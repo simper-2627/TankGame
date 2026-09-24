@@ -110,7 +110,8 @@ public record Tank
         var targetY = Math.Clamp(tank.PositionY + deltaY, 0, map.Height - Size);
         var totalX = targetX - tank.PositionX;
         var totalY = targetY - tank.PositionY;
-        var stepPixels = Math.Max(1, settings.CollisionStepPixels);
+        // Sliding uses pixel steps so an axis fallback cannot skip a thin obstacle.
+        var stepPixels = settings.SlideAlongWalls ? 1 : Math.Max(1, settings.CollisionStepPixels);
         var steps = (int)Math.Ceiling(Math.Max(Math.Abs(totalX), Math.Abs(totalY)) / (double)stepPixels);
 
         if (steps == 0)
@@ -121,21 +122,49 @@ public record Tank
         var lastValidTank = tank;
         for (var step = 1; step <= steps; step++)
         {
-            var nextTank = tank with
+            var stepX = (int)Math.Round(totalX * step / (double)steps)
+                - (int)Math.Round(totalX * (step - 1) / (double)steps);
+            var stepY = (int)Math.Round(totalY * step / (double)steps)
+                - (int)Math.Round(totalY * (step - 1) / (double)steps);
+            var nextTank = lastValidTank with
             {
-                PositionX = tank.PositionX + (int)Math.Round(totalX * step / (double)steps),
-                PositionY = tank.PositionY + (int)Math.Round(totalY * step / (double)steps)
+                PositionX = lastValidTank.PositionX + stepX,
+                PositionY = lastValidTank.PositionY + stepY
             };
 
             if (map.Blocks(GetCollisionArea(nextTank, settings)))
             {
+                if (settings.SlideAlongWalls)
+                {
+                    var alongX = lastValidTank with { PositionX = nextTank.PositionX };
+                    var alongY = lastValidTank with { PositionY = nextTank.PositionY };
+                    var canSlideX = stepX != 0 && !map.Blocks(GetCollisionArea(alongX, settings));
+                    var canSlideY = stepY != 0 && !map.Blocks(GetCollisionArea(alongY, settings));
+                    // At an exact corner neither face is preferred: don't steer the tank sideways.
+                    if (canSlideX && canSlideY)
+                        return lastValidTank with { Speed = 0 };
+                    if (canSlideX)
+                    {
+                        lastValidTank = alongX;
+                        continue;
+                    }
+                    if (canSlideY)
+                    {
+                        lastValidTank = alongY;
+                        continue;
+                    }
+                    // A shallow diagonal may have no tangential pixel in this step.
+                    continue;
+                }
                 return lastValidTank with { Speed = 0 };
             }
 
             lastValidTank = nextTank;
         }
 
-        return lastValidTank;
+        return lastValidTank.PositionX == tank.PositionX && lastValidTank.PositionY == tank.PositionY
+            ? lastValidTank with { Speed = 0 }
+            : lastValidTank;
     }
 
     public static RectangleArea GetVisualArea(Tank tank) =>

@@ -22,13 +22,14 @@ public static class GameMatchTypes
 
 public record DeveloperGameSettings
 {
-    public int HitboxInset { get; init; } = 6;
-    public int VisualTopOffset { get; init; } = 50;
+    public bool SlideAlongWalls { get; init; }
+    public int HitboxInset { get; init; } = 8;
+    public int VisualTopOffset { get; init; } = 26;
     public int CollisionStepPixels { get; init; } = 1;
     public int ForwardAcceleration { get; init; } = 8;
-    public int BrakeAcceleration { get; init; } = -6;
-    public int MaxSpeed { get; init; } = 80;
-    public int TurnDegrees { get; init; } = 30;
+    public int BrakeAcceleration { get; init; } = -16;
+    public int MaxSpeed { get; init; } = 30;
+    public int TurnDegrees { get; init; } = 10;
     public double BackwardSpeedMultiplier { get; init; } = 0.65;
 }
 

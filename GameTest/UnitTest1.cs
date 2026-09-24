@@ -6,6 +6,86 @@ namespace GameTest;
 
 public class UnitTest1
 {
+    [Theory]
+    [InlineData(68, 94, 45)]
+    [InlineData(192, 94, 135)]
+    [InlineData(68, 218, -45)]
+    [InlineData(192, 218, 225)]
+    public void ExactCornerContactDoesNotChooseAnArbitraryTrajectory(int x, int y, int angle)
+    {
+        var map = new GameMap("Corner", 400, 400, [new Obstacle(120, 120, 80, 80)], []);
+        var tank = new Tank { PositionX = x, PositionY = y, Angle = angle, MovingForward = true, Speed = 80 };
+        var settings = new DeveloperGameSettings { SlideAlongWalls = true };
+
+        var moved = Tank.ProcessTankMovement(tank, map, settings);
+
+        Assert.Equal(tank.PositionX, moved.PositionX);
+        Assert.Equal(tank.PositionY, moved.PositionY);
+        Assert.Equal(0, moved.Speed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DiagonalWallContactSlidesOnlyWhenEnabled(bool sliding)
+    {
+        var map = new GameMap("Wall", 400, 400, [new Obstacle(120, 0, 1, 300)], []);
+        var tank = new Tank { PositionX = 68, PositionY = 100, Angle = 45, MovingForward = true, Speed = 80 };
+        var settings = new DeveloperGameSettings { SlideAlongWalls = sliding, CollisionStepPixels = 12 };
+
+        var moved = Tank.ProcessTankMovement(tank, map, settings);
+
+        Assert.Equal(68, moved.PositionX);
+        Assert.Equal(sliding ? 121 : 100, moved.PositionY);
+        Assert.False(map.Blocks(Tank.GetCollisionArea(moved, settings)));
+    }
+
+    [Fact]
+    public void SlidingStopsAtInsideCornerAndCanReverseOut()
+    {
+        var map = new GameMap("Corner", 400, 400,
+            [new Obstacle(120, 0, 20, 300), new Obstacle(0, 150, 300, 20)], []);
+        var settings = new DeveloperGameSettings { SlideAlongWalls = true };
+        var tank = new Tank { PositionX = 68, PositionY = 124, Angle = 45, MovingForward = true, Speed = 80 };
+
+        var stopped = Tank.ProcessTankMovement(tank, map, settings);
+        Assert.Equal(tank.PositionX, stopped.PositionX);
+        Assert.Equal(tank.PositionY, stopped.PositionY);
+        Assert.Equal(0, stopped.Speed);
+
+        var reversed = Tank.ProcessTankMovement(stopped with
+        {
+            MovingForward = false, MovingBackward = true, LastDirectionWasBackwards = true
+        }, map, settings);
+        Assert.True(reversed.PositionX < stopped.PositionX);
+        Assert.True(reversed.PositionY < stopped.PositionY);
+        Assert.False(map.Blocks(Tank.GetCollisionArea(reversed, settings)));
+    }
+
+    [Fact]
+    public void SlidingRoundsOutsideCornerWithoutCrossingWall()
+    {
+        var map = new GameMap("Corner", 400, 400, [new Obstacle(120, 0, 20, 120)], []);
+        var settings = new DeveloperGameSettings { SlideAlongWalls = true };
+        var tank = new Tank { PositionX = 68, PositionY = 130, Angle = 45, MovingForward = true, Speed = 80 };
+
+        var moved = Tank.ProcessTankMovement(tank, map, settings);
+
+        Assert.True(moved.PositionX > tank.PositionX);
+        Assert.True(moved.PositionY > tank.PositionY);
+        Assert.False(map.Blocks(Tank.GetCollisionArea(moved, settings)));
+    }
+
+    [Fact]
+    public void DeveloperSettingsCarrySlidingAndResetToDefault()
+    {
+        var game = new Game(new TestHubContext()) { MatchType = GameMatchTypes.DeveloperSimulation };
+        game.UpdateDeveloperSettings(new DeveloperGameSettings { SlideAlongWalls = true });
+        Assert.True(game.GetGameState().DeveloperSettings.SlideAlongWalls);
+        game.UpdateDeveloperSettings(new DeveloperGameSettings());
+        Assert.False(game.GetGameState().DeveloperSettings.SlideAlongWalls);
+    }
+
     private class TestHubClients : IHubClients
     {
         public IClientProxy this[string connectionId] => new TestClientProxy();
@@ -131,7 +211,7 @@ public class UnitTest1
 
         var movedTank = Tank.ProcessTankMovement(tank, map);
 
-        Assert.Equal(66, movedTank.PositionX);
+        Assert.Equal(68, movedTank.PositionX);
         Assert.Equal(tank.PositionY, movedTank.PositionY);
         Assert.Equal(0, movedTank.Speed);
     }
