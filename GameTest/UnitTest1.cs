@@ -115,7 +115,7 @@ public class UnitTest1
     public void TankMovementStaysInsideMapBounds()
     {
         var map = new GameMap("Test", 120, 120, [], [new MapSpawnPoint(0, 0, 0)]);
-        var tank = new Tank { PositionX = 100, PositionY = 100, MovingForward = true, Speed = 80 };
+        var tank = new Tank { PositionX = 50, PositionY = 50, Angle = 0, MovingForward = true, Speed = 80 };
 
         var movedTank = Tank.ProcessTankMovement(tank, map);
 
@@ -126,13 +126,14 @@ public class UnitTest1
     [Fact]
     public void TankMovementIsBlockedByObstacle()
     {
-        var map = new GameMap("Test", 300, 300, [new Obstacle(80, 30, 80, 80)], [new MapSpawnPoint(0, 0, 0)]);
+        var map = new GameMap("Test", 300, 300, [new Obstacle(120, 30, 80, 80)], [new MapSpawnPoint(0, 0, 0)]);
         var tank = new Tank { PositionX = 50, PositionY = 50, Angle = 0, MovingForward = true, Speed = 30 };
 
         var movedTank = Tank.ProcessTankMovement(tank, map);
 
-        Assert.Equal(tank.PositionX, movedTank.PositionX);
+        Assert.Equal(66, movedTank.PositionX);
         Assert.Equal(tank.PositionY, movedTank.PositionY);
+        Assert.Equal(0, movedTank.Speed);
     }
 
     [Fact]

@@ -86,7 +86,6 @@ public record Tank
 
     private static Tank CalculateNewPosition(Tank incomingTank, GameMap map)
     {
-        var newSprite = incomingTank;
         double backwardSpeedModifier = 0.65;
 
         double radians = Math.PI * incomingTank.Angle / 180.0;
@@ -97,25 +96,43 @@ public record Tank
 
         if (incomingTank.LastDirectionWasBackwards)
         {
-            newSprite = incomingTank with
-            {
-                PositionX = Math.Clamp(incomingTank.PositionX - backDeltaX, 0, map.Width - Size),
-                PositionY = Math.Clamp(incomingTank.PositionY - backDeltaY, 0, map.Height - Size)
-            };
-
+            return MoveUntilBlocked(incomingTank, -backDeltaX, -backDeltaY, map);
         }
-        else
+
+        return MoveUntilBlocked(incomingTank, deltaX, deltaY, map);
+    }
+
+    private static Tank MoveUntilBlocked(Tank tank, int deltaX, int deltaY, GameMap map)
+    {
+        var targetX = Math.Clamp(tank.PositionX + deltaX, 0, map.Width - Size);
+        var targetY = Math.Clamp(tank.PositionY + deltaY, 0, map.Height - Size);
+        var totalX = targetX - tank.PositionX;
+        var totalY = targetY - tank.PositionY;
+        var steps = Math.Max(Math.Abs(totalX), Math.Abs(totalY));
+
+        if (steps == 0)
         {
-            newSprite = incomingTank with
-            {
-                PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, map.Width - Size),
-                PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, map.Height - Size)
-            };
-
+            return tank;
         }
 
-        var tankArea = GetCollisionArea(newSprite);
-        return map.Blocks(tankArea) ? incomingTank with { Speed = 0 } : newSprite;
+        var lastValidTank = tank;
+        for (var step = 1; step <= steps; step++)
+        {
+            var nextTank = tank with
+            {
+                PositionX = tank.PositionX + (int)Math.Round(totalX * step / (double)steps),
+                PositionY = tank.PositionY + (int)Math.Round(totalY * step / (double)steps)
+            };
+
+            if (map.Blocks(GetCollisionArea(nextTank)))
+            {
+                return lastValidTank with { Speed = 0 };
+            }
+
+            lastValidTank = nextTank;
+        }
+
+        return lastValidTank;
     }
 
     //private static Bullet CalculateShooting(Tank incomingTank)
