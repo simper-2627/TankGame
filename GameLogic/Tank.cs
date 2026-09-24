@@ -4,7 +4,7 @@ public record Tank
 {
     public const int Size = 60;
     private const int VisualTopOffset = 50;
-    private const int HitboxInset = 12;
+    private const int HitboxInset = 6;
     private const int HitboxSize = Size - (HitboxInset * 2);
     public Guid Id { get; } = Guid.NewGuid();
     public int PositionY { get; init; } = 50;
