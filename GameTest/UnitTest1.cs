@@ -184,8 +184,14 @@ public class UnitTest1
             Assert.NotEmpty(map.SpawnPoints);
             Assert.All(map.SpawnPoints, spawnPoint =>
             {
-                var spawnArea = new RectangleArea(spawnPoint.X, spawnPoint.Y, Tank.Size, Tank.Size);
-                Assert.False(map.Blocks(spawnArea));
+                var spawnTank = new Tank
+                {
+                    PositionX = spawnPoint.X,
+                    PositionY = spawnPoint.Y,
+                    Angle = spawnPoint.Angle
+                };
+
+                Assert.False(map.Blocks(Tank.GetCollisionArea(spawnTank)));
             });
         });
     }

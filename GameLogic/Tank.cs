@@ -3,6 +3,9 @@ namespace GameLogic;
 public record Tank
 {
     public const int Size = 60;
+    private const int VisualTopOffset = 50;
+    private const int HitboxInset = 12;
+    private const int HitboxSize = Size - (HitboxInset * 2);
     public Guid Id { get; } = Guid.NewGuid();
     public int PositionY { get; init; } = 50;
     public int PositionX { get; init; } = 50;
@@ -33,6 +36,13 @@ public record Tank
         //CalculateShooting(movedShip);
         return movedShip;
     }
+
+    public static RectangleArea GetCollisionArea(Tank tank) =>
+        new(
+            tank.PositionX + HitboxInset,
+            tank.PositionY - VisualTopOffset + HitboxInset,
+            HitboxSize,
+            HitboxSize);
 
     private static Tank CalculateNewAngleAndSpeed(Tank tank)
     {
@@ -104,7 +114,7 @@ public record Tank
 
         }
 
-        var tankArea = new RectangleArea(newSprite.PositionX, newSprite.PositionY, Size, Size);
+        var tankArea = GetCollisionArea(newSprite);
         return map.Blocks(tankArea) ? incomingTank with { Speed = 0 } : newSprite;
     }
 
