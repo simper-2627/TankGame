@@ -6,6 +6,72 @@ namespace GameTest;
 
 public class UnitTest1
 {
+    private sealed class PausingObstacles : IReadOnlyList<Obstacle>
+    {
+        public ManualResetEventSlim Entered { get; } = new(false);
+        public ManualResetEventSlim Resume { get; } = new(false);
+        public int Count => 1;
+        public Obstacle this[int index] => new(350, 350, 10, 10);
+        public IEnumerator<Obstacle> GetEnumerator()
+        {
+            Entered.Set();
+            if (!Resume.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("Test did not release the game tick.");
+            yield return this[0];
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [Fact]
+    public async Task ReverseInputDuringTickIsNotOverwritten()
+    {
+        var obstacles = new PausingObstacles();
+        var game = new Game(new TestHubContext())
+        {
+            Map = new GameMap("Concurrent", 400, 400, obstacles, [new MapSpawnPoint(60, 60, 0)])
+        };
+        var id = game.JoinGame();
+        var input = new PlayerInputRequest { GameName = "Concurrent", PlayerId = id,
+            Forward = true, Backward = false, Left = false, Right = false, Shoot = false,
+            LastDirectionBackwards = false };
+        game.ReceiveUserInput(input);
+        var tick = Task.Run(() => game.loopRunner.ProcessGameTick());
+        Task reverse = Task.CompletedTask;
+        try
+        {
+            Assert.True(obstacles.Entered.Wait(TimeSpan.FromSeconds(5)));
+            reverse = Task.Run(() => game.ReceiveUserInput(input with
+            {
+                Forward = false, Backward = true, LastDirectionBackwards = true
+            }));
+            await Task.WhenAny(reverse, Task.Delay(100));
+        }
+        finally
+        {
+            obstacles.Resume.Set();
+            await Task.WhenAll(tick, reverse);
+        }
+        Assert.True(game.Tanks.Single().MovingBackward);
+        Assert.True(game.Tanks.Single().LastDirectionWasBackwards);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReverseEscapesReportedCenterWallContact(bool sliding)
+    {
+        var map = MapCatalog.GetByName("Center Wall");
+        var tank = new Tank { PositionX = 338, PositionY = 269, Angle = 50,
+            MovingBackward = true, LastDirectionWasBackwards = true };
+        var settings = new DeveloperGameSettings { SlideAlongWalls = sliding };
+
+        var moved = Tank.ProcessTankMovement(tank, map, settings);
+
+        Assert.True(moved.PositionX < tank.PositionX);
+        Assert.True(moved.PositionY < tank.PositionY);
+        Assert.False(map.Blocks(Tank.GetCollisionArea(moved, settings)));
+    }
+
     [Theory]
     [InlineData(68, 94, 45)]
     [InlineData(192, 94, 135)]

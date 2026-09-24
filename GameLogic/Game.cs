@@ -6,6 +6,7 @@ namespace GameLogic.Game;
 public class Game
 {
     private readonly IHubContext<LobbyHub> hubContext;
+    internal object StateLock { get; } = new();
 
     public GameStatus Status => GameStatus.Playing;
     //public event Action? OnUpdate;
@@ -58,6 +59,8 @@ public class Game
 
     public Guid JoinGame()
     {
+        lock (StateLock)
+        {
         var spawnPoint = Map.SpawnPoints.ElementAt(Tanks.Count() % Map.SpawnPoints.Count);
         var newTank = new Tank
         {
@@ -67,10 +70,13 @@ public class Game
         };
         Tanks = Tanks.Append(newTank);
         return newTank.Id;
+        }
     }
 
     public void ReceiveUserInput(PlayerInputRequest request)
     {
+        lock (StateLock)
+        {
         Tanks = Tanks.Select(t =>
         {
             if (t.Id == request.PlayerId)
@@ -109,7 +115,7 @@ public class Game
             return t;
         })
         .ToArray();
-
+        }
     }
 
     public void UpdateDeveloperSettings(DeveloperGameSettings settings)

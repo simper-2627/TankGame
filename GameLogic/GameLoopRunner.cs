@@ -57,12 +57,16 @@ public class GameLoopRunner
         //    Console.WriteLine(tank);
         //}
         //Console.WriteLine();
+        // Input and simulation both replace state; keep either update from overwriting the other.
+        lock (game.StateLock)
+        {
         game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, game.DeveloperSettings)).ToArray();
         game.Bullets = game.Bullets
             .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
             .Where(bullet => bullet is not null)
             .Cast<Bullet>()
             .ToArray();
+        }
 
         saver?.SaveTick(game.Tanks, tickcounter, game.Name ?? string.Empty);
 
