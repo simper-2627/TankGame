@@ -176,26 +176,25 @@ public class UnitTest1
     }
 
     [Fact]
-    public void MapCatalogRotatesThroughFixedMaps()
+    public void MapCatalogFindsFixedMapByName()
     {
-        var firstMap = MapCatalog.FixedMaps[0];
         var secondMap = MapCatalog.FixedMaps[1];
 
-        var nextMap = MapCatalog.NextMap(firstMap);
+        var selectedMap = MapCatalog.GetByName(secondMap.Name);
 
-        Assert.Equal(secondMap.Name, nextMap.Name);
+        Assert.Equal(secondMap.Name, selectedMap.Name);
     }
 
     [Fact]
-    public async Task GameRotateMapChangesSharedMap()
+    public void LobbyCreateGameUsesSelectedMap()
     {
         var hubContext = new TestHubContext();
-        var game = new Game(hubContext);
-        var originalMap = game.Map;
+        var lobby = new Lobby(hubContext);
+        var selectedMap = MapCatalog.FixedMaps[2];
 
-        await game.RotateMap();
+        var game = lobby.CreateGame("selected-map-game", selectedMap.Name);
 
-        Assert.NotEqual(originalMap.Name, game.Map.Name);
+        Assert.Equal(selectedMap.Name, game.Map.Name);
         Assert.Equal(game.Map.Name, game.GetGameState().Map?.Name);
     }
 }

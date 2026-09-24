@@ -9,7 +9,6 @@
 {
   <div class="d-flex align-items-center gap-2 mb-2">
     <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
-    <button class="btn btn-secondary btn-sm" @onclick="RotateMap">Rotate Map</button>
   </div>
   <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.Width ?? 750)" BoardHeight="@(game.Map?.Height ?? 750)">
     @if (game.Map?.Obstacles != null)
@@ -50,8 +49,4 @@
 
   }
 
-  private void RotateMap()
-  {
-    signalR.HubConnection?.SendAsync(Messages.RotateMap, GameName);
-  }
 }
