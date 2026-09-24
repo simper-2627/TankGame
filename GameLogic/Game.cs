@@ -54,7 +54,13 @@ public class Game
 
     public Guid JoinGame()
     {
-        var newTank = new Tank();
+        var spawnPoint = Map.SpawnPoints.ElementAt(Tanks.Count() % Map.SpawnPoints.Count);
+        var newTank = new Tank
+        {
+            PositionX = spawnPoint.X,
+            PositionY = spawnPoint.Y,
+            Angle = spawnPoint.Angle
+        };
         Tanks = Tanks.Append(newTank);
         return newTank.Id;
     }

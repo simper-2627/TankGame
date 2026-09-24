@@ -2,6 +2,7 @@ namespace GameLogic;
 
 public record Tank
 {
+    public const int Size = 60;
     public Guid Id { get; } = Guid.NewGuid();
     public int PositionY { get; init; } = 50;
     public int PositionX { get; init; } = 50;
@@ -19,7 +20,6 @@ public record Tank
     private const int BackwardMovementSpeedConst = -6;
     private const int MovementAngleConst = 30;
     private const int DefaultSpeedDelta = -6;
-    private const int TankSize = 60;
 
     public static Tank ProcessTankMovement(Tank tank)
     {
@@ -89,8 +89,8 @@ public record Tank
         {
             newSprite = incomingTank with
             {
-                PositionX = Math.Clamp(incomingTank.PositionX - backDeltaX, 0, map.Width - TankSize),
-                PositionY = Math.Clamp(incomingTank.PositionY - backDeltaY, 0, map.Height - TankSize)
+                PositionX = Math.Clamp(incomingTank.PositionX - backDeltaX, 0, map.Width - Size),
+                PositionY = Math.Clamp(incomingTank.PositionY - backDeltaY, 0, map.Height - Size)
             };
 
         }
@@ -98,13 +98,13 @@ public record Tank
         {
             newSprite = incomingTank with
             {
-                PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, map.Width - TankSize),
-                PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, map.Height - TankSize)
+                PositionX = Math.Clamp(incomingTank.PositionX + deltaX, 0, map.Width - Size),
+                PositionY = Math.Clamp(incomingTank.PositionY + deltaY, 0, map.Height - Size)
             };
 
         }
 
-        var tankArea = new RectangleArea(newSprite.PositionX, newSprite.PositionY, TankSize, TankSize);
+        var tankArea = new RectangleArea(newSprite.PositionX, newSprite.PositionY, Size, Size);
         return map.Blocks(tankArea) ? incomingTank with { Speed = 0 } : newSprite;
     }
 

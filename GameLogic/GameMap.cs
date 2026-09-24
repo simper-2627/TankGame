@@ -1,6 +1,11 @@
 namespace GameLogic;
 
-public record GameMap(string Name, int Width, int Height, IReadOnlyList<Obstacle> Obstacles)
+public record GameMap(
+    string Name,
+    int Width,
+    int Height,
+    IReadOnlyList<Obstacle> Obstacles,
+    IReadOnlyList<MapSpawnPoint> SpawnPoints)
 {
     public bool Contains(RectangleArea area) =>
         area.X >= 0 &&
@@ -18,6 +23,8 @@ public record GameMap(string Name, int Width, int Height, IReadOnlyList<Obstacle
         y > Height ||
         Obstacles.Any(obstacle => obstacle.ContainsPoint(x, y));
 }
+
+public record MapSpawnPoint(int X, int Y, int Angle);
 
 public record Obstacle(int X, int Y, int Width, int Height)
 {
@@ -47,6 +54,12 @@ public static class MapCatalog
             [
                 new Obstacle(410, 120, 80, 460),
                 new Obstacle(190, 310, 520, 70)
+            ],
+            [
+                new MapSpawnPoint(60, 60, 0),
+                new MapSpawnPoint(780, 580, 180),
+                new MapSpawnPoint(780, 60, 135),
+                new MapSpawnPoint(60, 580, -45)
             ]),
         new(
             "Twin Forts",
@@ -56,6 +69,12 @@ public static class MapCatalog
                 new Obstacle(170, 130, 140, 210),
                 new Obstacle(590, 360, 140, 210),
                 new Obstacle(390, 290, 120, 120)
+            ],
+            [
+                new MapSpawnPoint(70, 70, 0),
+                new MapSpawnPoint(770, 570, 180),
+                new MapSpawnPoint(760, 80, 135),
+                new MapSpawnPoint(80, 560, -45)
             ]),
         new(
             "Switchbacks",
@@ -65,6 +84,12 @@ public static class MapCatalog
                 new Obstacle(150, 120, 560, 60),
                 new Obstacle(190, 320, 560, 60),
                 new Obstacle(150, 520, 560, 60)
+            ],
+            [
+                new MapSpawnPoint(60, 60, 0),
+                new MapSpawnPoint(780, 600, 180),
+                new MapSpawnPoint(60, 250, 0),
+                new MapSpawnPoint(780, 430, 180)
             ]),
         new(
             "Center Wall",
@@ -75,6 +100,12 @@ public static class MapCatalog
                 new Obstacle(390, 390, 120, 220),
                 new Obstacle(130, 300, 160, 90),
                 new Obstacle(610, 300, 160, 90)
+            ],
+            [
+                new MapSpawnPoint(70, 80, 0),
+                new MapSpawnPoint(770, 560, 180),
+                new MapSpawnPoint(760, 80, 135),
+                new MapSpawnPoint(70, 560, -45)
             ])
     ];
 
