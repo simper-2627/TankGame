@@ -11,6 +11,8 @@ public class Game
     //public event Action? OnUpdate;
     public readonly ConcurrentBag<string> ConnectedClients = new();
     public string? Name { get; init; }
+    public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
+    public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
     public GameMap Map { get; init; } = MapCatalog.DefaultMap;
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
@@ -29,6 +31,8 @@ public class Game
         {
             Status = Status,
             Name = Name,
+            MatchType = MatchType,
+            DeveloperSettings = DeveloperSettings,
             Map = Map,
             Tanks = Tanks.Select(t => new TankState()
             {
@@ -106,6 +110,26 @@ public class Game
         })
         .ToArray();
 
+    }
+
+    public void UpdateDeveloperSettings(DeveloperGameSettings settings)
+    {
+        if (MatchType != GameMatchTypes.DeveloperSimulation)
+        {
+            return;
+        }
+
+        DeveloperSettings = settings with
+        {
+            HitboxInset = Math.Clamp(settings.HitboxInset, 0, Tank.Size / 2 - 1),
+            VisualTopOffset = Math.Clamp(settings.VisualTopOffset, 0, Tank.Size),
+            CollisionStepPixels = Math.Clamp(settings.CollisionStepPixels, 1, 12),
+            ForwardAcceleration = Math.Clamp(settings.ForwardAcceleration, 1, 30),
+            BrakeAcceleration = Math.Clamp(settings.BrakeAcceleration, -30, 0),
+            MaxSpeed = Math.Clamp(settings.MaxSpeed, 1, 160),
+            TurnDegrees = Math.Clamp(settings.TurnDegrees, 1, 90),
+            BackwardSpeedMultiplier = Math.Clamp(settings.BackwardSpeedMultiplier, 0.1, 1.5)
+        };
     }
 
 }

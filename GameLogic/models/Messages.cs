@@ -10,4 +10,5 @@ public static class Messages
   public static readonly string GameUpdate = "GameUpdate";
   public static readonly string SubscribeToGame = "SubscribeToGame";
   public static readonly string PlayerInput = "PlayerInput";
+  public static readonly string UpdateDeveloperSettings = "UpdateDeveloperSettings";
 }
