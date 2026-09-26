@@ -15,13 +15,13 @@ Arrow keys drive the hull (unchanged). Mouse position aims the turret. Mouse cli
 - [x] `Game.ReceiveUserInput`: copy aim into the tank
 
 ## 2. Firing
-- [ ] Bullet `Angle` = `TurretAngle` (not hull `Angle`)
-- [ ] Spawn at the barrel tip (tank center + barrel length along `TurretAngle`)
-- [ ] Fire on the rising edge of `Shoot` (false → true) plus a short cooldown. Otherwise, with aim in the input, every mouse move while the button is held sends a new message and spawns a bullet
+- [x] Bullet `Angle` = `TurretAngle` (not hull `Angle`)
+- [x] Spawn at the barrel tip (tank center + barrel length along `TurretAngle`)
+- [x] Fire on the rising edge of `Shoot` (false → true); no cooldown yet, one shot per click. Otherwise, with aim in the input, every mouse move while the button is held sends a new message and spawns a bullet
 
 ## 3. Frontend input (`PlayerControls.razor`)
 - [x] `@onmousemove`: store `e.OffsetX/OffsetY` as the aim point
-- [ ] `@onmousedown` / `@onmouseup`: set/clear shoot (and clear it in `handleBlur`)
+- [x] `@onmousedown` / `@onmouseup`: set/clear shoot (and clear it in `handleBlur`)
 - [x] `pointer-events: none` on tanks and bullets so `OffsetX/Y` is always relative to the board, not the child under the cursor
 - [x] Update the "control with the arrow keys" hint text
 
@@ -33,7 +33,8 @@ Arrow keys drive the hull (unchanged). Mouse position aims the turret. Mouse cli
 
 ## 5. Verify
 - [x] Unit tests: turret angle (GameTest/TurretTests.cs)
-- [ ] Unit tests: bullet uses turret angle; holding fire doesn't spray
+- [x] Unit tests: bullet uses turret angle; holding fire doesn't spray
 - [x] Existing tests still pass (BulletMotion was already failing on main; that's for the shooting step)
 - [x] Run the app: drive with arrows, aim with mouse (verified in Edge)
-- [ ] Two tabs + click to fire (after shooting step)
+- [x] Click to fire verified in Edge (quick click, held + sweep = 1 bullet, 3 clicks = 3 bullets)
+- [ ] Two tabs: bullets hitting other tanks (no hit detection yet)

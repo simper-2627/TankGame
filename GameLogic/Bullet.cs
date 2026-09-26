@@ -13,7 +13,7 @@ namespace GameLogic
         public int PositionY { get; init; }
         public int Angle { get; init; }
         private const int Speed = 20;
-        private const int BulletSize = 10;
+        public const int BulletSize = 10;
 
         public static Bullet? MoveBullet(Bullet bullet)
         {

@@ -95,15 +95,10 @@ public class Game
                 };
                 updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
 
-                if (updatedTank.Shooting)
+                // Fire once per press; holding the button (or aiming while held) doesn't spray
+                if (updatedTank.Shooting && !t.Shooting)
                 {
-                    var bullet = new Bullet
-                    {
-                        PositionX = updatedTank.PositionX,
-                        PositionY = updatedTank.PositionY,
-                        Angle = updatedTank.Angle
-                    };
-                    Bullets = Bullets.Append(bullet);
+                    Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings));
                 }
 
                 //if (updatedTank.Bullet != null)

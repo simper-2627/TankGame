@@ -281,8 +281,9 @@ public class UnitTest1
         var gameState = game.GetGameState();
         var bullet = gameState.Bullets!.FirstOrDefault();
         Assert.NotNull(bullet);
-        Assert.Equal(game.Tanks.First().PositionX, bullet.PositionX);
-        Assert.Equal(game.Tanks.First().PositionY, bullet.PositionY);
+        var expected = Tank.FireBullet(game.Tanks.First(), game.DeveloperSettings);
+        Assert.Equal(expected.PositionX, bullet.PositionX);
+        Assert.Equal(expected.PositionY, bullet.PositionY);
 
         await game.loopRunner.ProcessGameTick();
 
@@ -292,6 +293,61 @@ public class UnitTest1
         Assert.True(
             bullet.PositionX != updatedBullet.PositionX ||
             bullet.PositionY != updatedBullet.PositionY);
+    }
+
+    private static PlayerInputRequest Input(Guid playerId, bool shoot, int? aimX = null, int? aimY = null) => new()
+    {
+        GameName = "shooting", PlayerId = playerId,
+        Up = false, Down = false, Left = false, Right = false,
+        Shoot = shoot, AimX = aimX, AimY = aimY,
+    };
+
+    [Fact]
+    public void BulletFiresAlongTurretFromMuzzle()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+        var (centerX, centerY) = Tank.GetCenter(game.Tanks.Single(), game.DeveloperSettings);
+
+        // Aim straight down from the tank's center, then fire
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: centerX, aimY: centerY + 200));
+
+        var bullet = game.Bullets.Single();
+        Assert.Equal(90, bullet.Angle);
+        Assert.Equal(centerX, bullet.PositionX + Bullet.BulletSize / 2);
+        Assert.Equal(centerY + Tank.BarrelLength, bullet.PositionY + Bullet.BulletSize / 2);
+    }
+
+    [Fact]
+    public void BulletIgnoresHullDirection()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+        var (centerX, centerY) = Tank.GetCenter(game.Tanks.Single(), game.DeveloperSettings);
+
+        // Drive right while aiming up: the bullet follows the turret, not the hull
+        game.ReceiveUserInput(Input(id, shoot: false, aimX: centerX, aimY: centerY - 200) with { Right = true });
+        game.ReceiveUserInput(Input(id, shoot: true) with { Right = true });
+
+        Assert.Equal(-90, game.Bullets.Single().Angle);
+    }
+
+    [Fact]
+    public void HoldingFireShootsOncePerPress()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: 300, aimY: 300));
+        // Still held while the mouse moves: no extra bullets
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: 310, aimY: 300));
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: 320, aimY: 300));
+        Assert.Single(game.Bullets);
+
+        // Release and press again: a second bullet
+        game.ReceiveUserInput(Input(id, shoot: false));
+        game.ReceiveUserInput(Input(id, shoot: true));
+        Assert.Equal(2, game.Bullets.Count());
     }
 
     [Fact]

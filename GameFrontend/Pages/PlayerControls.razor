@@ -5,13 +5,13 @@
 @implements IDisposable
 
 <div>
-    Select box, drive with the arrow keys, and aim with the mouse
+    Select box, drive with the arrow keys, aim with the mouse, and click to fire
 </div>
 <div tabindex="0" 
 class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
 style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden;")
 @onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
-@onmousemove="handleMouseMove"
+@onmousemove="handleMouseMove" @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp"
 >
     @ChildContent
 </div>
@@ -39,6 +39,9 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     private HashSet<string> pressedKeys = new HashSet<string>();
     private int? aimX = null;
     private int? aimY = null;
+    private bool mouseHeld = false;
+    // Set on press, cleared once sent, so a click shorter than one input check still fires
+    private bool pressPending = false;
     private Timer? sendInputTimer;
     protected override async Task OnInitializedAsync()
     {
@@ -63,9 +66,21 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         aimX = (int)e.OffsetX;
         aimY = (int)e.OffsetY;
     }
+    private void handleMouseDown(MouseEventArgs e)
+    {
+        if (e.Button != 0)
+            return;
+        mouseHeld = true;
+        pressPending = true;
+    }
+    private void handleMouseUp(MouseEventArgs e)
+    {
+        mouseHeld = false;
+    }
     private void handleBlur()
     {
         pressedKeys = new HashSet<string>();
+        mouseHeld = false;
     }
     private void SendInputIfDifferent(object? state)
     {
@@ -76,7 +91,7 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         var left = pressedKeys.Contains("ArrowLeft");
         var right = pressedKeys.Contains("ArrowRight");
         var down = pressedKeys.Contains("ArrowDown");
-        var shoot = pressedKeys.Contains(" ");
+        var shoot = pressedKeys.Contains(" ") || mouseHeld || pressPending;
 
         var movementMessage = new PlayerInputRequest
       {
@@ -91,6 +106,9 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         AimY = aimY,
        };
       
+    // The press is now part of the shooting state, whether or not this message differs
+    if (shoot)
+      pressPending = false;
     if (movementMessage != lastSentInput)
     {
       lastSentInput = movementMessage;

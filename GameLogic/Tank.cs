@@ -20,6 +20,8 @@ public record Tank
     //public Bullet Bullet { get; set; } = new();
 
     private const int MovementSpeedConst = 8;
+    // Distance from the turret pivot to the muzzle, matching the drawn barrel
+    public const int BarrelLength = 40;
 
     public static Tank ProcessTankMovement(Tank tank)
     {
@@ -57,6 +59,22 @@ public record Tank
 
         var newAngle = (int)Math.Round(Math.Atan2(deltaY, deltaX) * 180.0 / Math.PI);
         return tank with { TurretAngle = newAngle };
+    }
+
+    // Bullet leaving the muzzle along the turret's direction
+    public static Bullet FireBullet(Tank tank, DeveloperGameSettings settings)
+    {
+        var (centerX, centerY) = GetCenter(tank, settings);
+        double radians = Math.PI * tank.TurretAngle / 180.0;
+        var muzzleX = centerX + (int)Math.Round(BarrelLength * Math.Cos(radians));
+        var muzzleY = centerY + (int)Math.Round(BarrelLength * Math.Sin(radians));
+        return new Bullet
+        {
+            // Bullet position is its top-left corner; center it on the muzzle
+            PositionX = muzzleX - Bullet.BulletSize / 2,
+            PositionY = muzzleY - Bullet.BulletSize / 2,
+            Angle = tank.TurretAngle
+        };
     }
 
     public static RectangleArea GetCollisionArea(Tank tank) =>
