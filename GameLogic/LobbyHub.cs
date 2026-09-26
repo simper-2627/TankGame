@@ -16,7 +16,7 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
-  public async Task CreateGame(string name)
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -24,7 +24,7 @@ public class LobbyHub : Hub
       throw new Exception($"cannot create game, name already taken: {name}");
     }
 
-    var game = lobby.CreateGame(name);
+    var game = lobby.CreateGame(name, mapName, matchType);
     Console.WriteLine($"created game: {name}");
 
     var playerId = game.JoinGame();
@@ -58,7 +58,7 @@ public class LobbyHub : Hub
 
     var game = lobby.Games.First(g => g.Name == gameName);
 
-    game.ConnectedClients.Add(Context.ConnectionId);
+    game.ConnectedClients.TryAdd(Context.ConnectionId, 0);
 
   }
 
@@ -70,13 +70,20 @@ public class LobbyHub : Hub
     game.ReceiveUserInput(request);
   }
 
+  public async Task UpdateDeveloperSettings(string gameName, DeveloperGameSettings settings)
+  {
+    var game = lobby.Games.First(g => g.Name == gameName);
+    game.UpdateDeveloperSettings(settings);
+    await game.BroadcastUpdate();
+  }
+
   public override async Task OnDisconnectedAsync(Exception? exception)
   {
     string? connectionId = Context.ConnectionId;
 
     foreach (var game in lobby.Games)
     {
-      if (game.ConnectedClients.TryTake(out connectionId))
+      if (game.ConnectedClients.TryRemove(connectionId, out _))
       {
         Console.WriteLine($"Removed connection: {connectionId} from game {game.Name}");
       }

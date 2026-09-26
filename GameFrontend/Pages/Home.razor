@@ -11,12 +11,30 @@
   <label class="form-label">
     New Game <input class="form-control" type="text" @bind=userInputGameName>
   </label>
+  <label class="form-label d-block">
+    Map
+    <select class="form-select" @bind=selectedMapName>
+      @foreach (var map in MapCatalog.FixedMaps)
+      {
+        <option value="@map.Name">@map.Name</option>
+      }
+    </select>
+  </label>
+  <div class="mb-2">
+    <label class="form-label d-block">Match Type</label>
+    <select class="form-select" @bind=selectedMatchType>
+      <option>@GameMatchTypes.Multiplayer</option>
+      <option disabled>With bots (coming soon)</option>
+      <option>@GameMatchTypes.DeveloperSimulation</option>
+    </select>
+  </div>
+  <button class="btn btn-success" type="submit">Create Match</button>
 </form>
 
 @foreach (var game in games)
 {
   <div>
-  @game.Name
+  @game.Name (@game.Map?.Name, @game.MatchType)
   <button class="btn btn-primary" @onclick="() => JoinGame(game.Name)">Join Game</button>
 </div>
 }
@@ -25,6 +43,8 @@
 @code {
   private HubConnection? hubConnection;
   private string userInputGameName = "";
+  private string selectedMapName = MapCatalog.DefaultMap.Name;
+  private string selectedMatchType = "Multiplayer";
 
   private IEnumerable<GameState> games = [];
 
@@ -56,7 +76,7 @@
   {
     Console.WriteLine("sending message to create game");
     
-    signalR.HubConnection?.SendAsync(Messages.CreateGame, userInputGameName);
+    signalR.HubConnection?.SendAsync(Messages.CreateGame, userInputGameName, selectedMapName, selectedMatchType);
     userInputGameName = "";
   }
   

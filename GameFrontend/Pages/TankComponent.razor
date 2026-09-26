@@ -3,6 +3,8 @@
 @code {
     [Parameter]
     public TankState tank { get; set; }
+    [Parameter]
+    public int VisualTopOffset { get; set; } = new DeveloperGameSettings().VisualTopOffset;
 
     private const string transitionConst = "transition: all 0.1s linear";
     // Kenney sprites face down (+90deg); game angles use 0deg = right
@@ -11,6 +13,8 @@
     private const double turretPivotX = 36.5;
     private const double turretPivotY = 36.5;
     private const double barrelWidth = 16;
+    private const double hullImageWidth = 75;
+    private const double spriteScale = Tank.Size / hullImageWidth;
     private static readonly string[] colors = ["Beige", "Black", "Blue", "Green", "Red"];
 
     private string color = "Green";
@@ -37,13 +41,16 @@
 
 @if (tank != null)
 {
-    <div style=@($"{transitionConst}; position: absolute; top: {tank.PositionY}px; left: {tank.PositionX}px; pointer-events: none;")>
-        <div style="position: absolute; top: -60px; transform: translateX(-50%); white-space: nowrap;">
-            @tank.Id
+    <div class="tank-sprite" style=@($"{transitionConst}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
+        <div title="@tank.Id" style="position: absolute; bottom: 100%; left: 0; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; line-height: 14px;">
+            @tank.Id.ToString()[^5..]
         </div>
-        <img src=@($"images/PNG/Tanks/tank{color}.png") alt=""
-             style=@($"{transitionConst}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg);") />
-        <img src=@($"images/PNG/Tanks/barrel{color}.png") alt=""
-             style=@($"{transitionConst}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
+        @* Origin at the box center, scaled so the sprite fills the collision box *@
+        <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>
+            <img src=@($"images/PNG/Tanks/tank{color}.png") alt=""
+                 style=@($"{transitionConst}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg);") />
+            <img src=@($"images/PNG/Tanks/barrel{color}.png") alt=""
+                 style=@($"{transitionConst}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
+        </div>
     </div>
 }

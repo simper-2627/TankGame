@@ -6,8 +6,31 @@ public record GameState
 {
     public GameStatus Status { get; init; }
     public string? Name { get; init; }
+    public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
+    public DeveloperGameSettings DeveloperSettings { get; init; } = new();
+    public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }
+}
+
+public static class GameMatchTypes
+{
+    public const string Multiplayer = "Multiplayer";
+    public const string Bots = "With bots";
+    public const string DeveloperSimulation = "Developer simulation";
+}
+
+public record DeveloperGameSettings
+{
+    public bool SlideAlongWalls { get; init; }
+    public int HitboxInset { get; init; } = 8;
+    public int VisualTopOffset { get; init; } = 26;
+    public int CollisionStepPixels { get; init; } = 1;
+    public int ForwardAcceleration { get; init; } = 8;
+    public int BrakeAcceleration { get; init; } = -16;
+    public int MaxSpeed { get; init; } = 30;
+    public int TurnDegrees { get; init; } = 10;
+    public double BackwardSpeedMultiplier { get; init; } = 0.65;
 }
 
 public record TankState
@@ -21,6 +44,7 @@ public record TankState
 
 public record BulletState
 {
+    public Guid Id { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }

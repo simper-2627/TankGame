@@ -8,15 +8,21 @@ namespace GameLogic
 {
     public record Bullet
     {
+        public Guid Id { get; init; } = Guid.NewGuid();
         public int PositionX { get; init; }
         public int PositionY { get; init; }
         public int Angle { get; init; }
         private const int Speed = 20;
-        private const int BoardSize = 700;
+        private const int BulletSize = 10;
 
-        public static Bullet MoveBullet(Bullet bullet)
+        public static Bullet? MoveBullet(Bullet bullet)
         {
-            if (bullet.PositionX < 0 || bullet.PositionX > BoardSize || bullet.PositionY < 0 || bullet.PositionY > BoardSize)
+            return MoveBullet(bullet, MapCatalog.DefaultMap);
+        }
+
+        public static Bullet? MoveBullet(Bullet bullet, GameMap map)
+        {
+            if (map.Blocks(new RectangleArea(bullet.PositionX, bullet.PositionY, BulletSize, BulletSize)))
             {
                 return null;
             }
@@ -28,7 +34,9 @@ namespace GameLogic
                 PositionX = bullet.PositionX + deltaX,
                 PositionY = bullet.PositionY + deltaY
             };
-            return newBullet;
+            return map.Blocks(new RectangleArea(newBullet.PositionX, newBullet.PositionY, BulletSize, BulletSize))
+                ? null
+                : newBullet;
         }
     }
 }

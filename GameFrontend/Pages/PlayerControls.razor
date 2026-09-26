@@ -9,7 +9,7 @@
 </div>
 <div tabindex="0" 
 class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
-style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
+style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden;")
 @onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
 @onmousemove="handleMouseMove"
 >
@@ -29,7 +29,10 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
     public string GameName { get; set; }
     [Parameter]
     public Guid PlayerId { get; set; }
-    private const int boardSize = 700 + 50;
+    [Parameter]
+    public int BoardWidth { get; set; } = 750;
+    [Parameter]
+    public int BoardHeight { get; set; } = 750;
     private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", " "];
     private const double inputCheckInterval = 0.01;
     private PlayerInputRequest? lastSentInput = null;
