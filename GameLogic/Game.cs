@@ -34,7 +34,7 @@ public class Game
                 PositionX = t.PositionX,
                 PositionY = t.PositionY,
                 Angle = t.Angle,
-
+                TurretAngle = t.TurretAngle,
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
             {
@@ -71,7 +71,10 @@ public class Game
                     MovingRight = request.Right,
                     Shooting = request.Shoot,
                     MovingDown = request.Down,
+                    AimX = request.AimX ?? t.AimX,
+                    AimY = request.AimY ?? t.AimY,
                 };
+                updatedTank = Tank.AimTurret(updatedTank);
 
                 if (updatedTank.Shooting)
                 {

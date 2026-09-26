@@ -16,6 +16,7 @@ public record TankState
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }
+    public int TurretAngle { get; init; }
 }
 
 public record BulletState

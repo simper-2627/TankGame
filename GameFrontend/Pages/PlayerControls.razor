@@ -5,12 +5,13 @@
 @implements IDisposable
 
 <div>
-    Select box and control with the arrow keys
+    Select box, drive with the arrow keys, and aim with the mouse
 </div>
 <div tabindex="0" 
 class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
 style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
 @onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
+@onmousemove="handleMouseMove"
 >
     @ChildContent
 </div>
@@ -33,6 +34,8 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
     private const double inputCheckInterval = 0.01;
     private PlayerInputRequest? lastSentInput = null;
     private HashSet<string> pressedKeys = new HashSet<string>();
+    private int? aimX = null;
+    private int? aimY = null;
     private Timer? sendInputTimer;
     protected override async Task OnInitializedAsync()
     {
@@ -50,6 +53,12 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
     private void handleKeyUp(KeyboardEventArgs e)
     {
         pressedKeys.Remove(e.Key);
+    }
+    private void handleMouseMove(MouseEventArgs e)
+    {
+        // Tanks and bullets ignore the mouse, so the offset is always relative to the board
+        aimX = (int)e.OffsetX;
+        aimY = (int)e.OffsetY;
     }
     private void handleBlur()
     {
@@ -75,6 +84,8 @@ style=@($"height: {boardSize}px; width: {boardSize}px; position: relative;")
         Right = right,
         Shoot = shoot,
         Down = down,
+        AimX = aimX,
+        AimY = aimY,
        };
       
     if (movementMessage != lastSentInput)
