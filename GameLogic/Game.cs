@@ -14,6 +14,7 @@ public class Game
     public GameStatus Status { get; private set; } = GameStatus.Playing;
     // Null while playing, and also when an ended match is a draw
     public Guid? WinnerId { get; private set; }
+    public bool BotsWon { get; private set; }
     // Game loop ticks processed so far (10 per second)
     public int Tick { get; internal set; }
     // Tick when the 2nd player joined; the time limit counts from here
@@ -68,6 +69,7 @@ public class Game
             Settings = Settings,
             CreatorId = CreatorId,
             WinnerId = WinnerId,
+            BotsWon = BotsWon,
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
@@ -304,6 +306,7 @@ public class Game
             return;
         Status = GameStatus.Ended;
         WinnerId = result.WinnerId;
+        BotsWon = result.BotsWon;
     }
 
 }

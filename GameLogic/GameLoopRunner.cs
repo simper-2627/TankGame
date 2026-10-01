@@ -70,7 +70,8 @@ public class GameLoopRunner
                 game.Bullets = bullets;
             }
             game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);
-            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
+            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft,
+                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin));
         }
         }
 

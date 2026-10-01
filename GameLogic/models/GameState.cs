@@ -15,6 +15,8 @@ public record GameState
     public MatchSettings Settings { get; init; } = new();
     public Guid? CreatorId { get; init; }
     public Guid? WinnerId { get; init; }
+    // The bots won (every human is out, or time ran out in single player); WinnerId is null then
+    public bool BotsWon { get; init; }
     // Null when there's no time limit or it hasn't started
     public int? SecondsLeft { get; init; }
     public GameMap? Map { get; init; }
