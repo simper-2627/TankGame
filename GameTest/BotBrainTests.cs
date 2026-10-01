@@ -299,4 +299,114 @@ public class BotBrainTests
         Assert.NotNull(input!.AimX);
         Assert.True(shots > 0, "an unstuck bot with a clear shot should still fire");
     }
+
+    // A bullet fired at the bot by the human: top-left (240, 200) flies left along y = 205, so it reaches the bot's center (130, 204)
+    private static readonly BulletState IncomingBullet = new()
+    {
+        Id = Guid.NewGuid(), PositionX = 240, PositionY = 200, Angle = 180, OwnerId = HumanId,
+    };
+
+    private static GameState DuelWithBullet(BotDifficulty difficulty, ProjectileType projectile = ProjectileType.DumbBubbles,
+        bool bulletInFlight = true) =>
+        BotViews.View(difficulty, [BotViews.Me(MeId, 100, 200), BotViews.Human(HumanId, 600, 200)],
+            bulletInFlight ? [IncomingBullet] : [], projectile);
+
+    [Fact]
+    public void HardSidestepsAnIncomingBulletForFiveTicksThenGoesBack()
+    {
+        var brain = NewBrain();
+        brain.Decide(DuelWithBullet(BotDifficulty.Hard, bulletInFlight: false), BotViews.Open);
+
+        for (var tick = 0; tick < 5; tick++)
+        {
+            var input = brain.Decide(DuelWithBullet(BotDifficulty.Hard), BotViews.Open);
+            Assert.Equal(BotState.Evade, brain.State);
+            // The bullet flies along a row, so the dodge is up or down, not along it
+            Assert.False(input.Left || input.Right);
+            Assert.True(input.Up || input.Down);
+        }
+
+        brain.Decide(DuelWithBullet(BotDifficulty.Hard, bulletInFlight: false), BotViews.Open);
+        Assert.Equal(BotState.Attack, brain.State);
+    }
+
+    [Fact]
+    public void ADodgeGoesAwayFromTheBulletsLineOfFlight()
+    {
+        // The bot's center is at y = 204 and the bullet flies along y = 205: the bot is just above the line, so it dodges up
+        var brain = NewBrain();
+
+        var input = brain.Decide(DuelWithBullet(BotDifficulty.Hard), BotViews.Open);
+
+        Assert.True(input.Up);
+    }
+
+    [Fact]
+    public void EasyNeverEvades()
+    {
+        var brain = NewBrain();
+
+        for (var tick = 0; tick < 10; tick++)
+        {
+            brain.Decide(DuelWithBullet(BotDifficulty.Easy), BotViews.Open);
+            Assert.NotEqual(BotState.Evade, brain.State);
+        }
+    }
+
+    [Fact]
+    public void NobodyEvadesInstantShots()
+    {
+        var brain = NewBrain();
+
+        for (var tick = 0; tick < 10; tick++)
+        {
+            brain.Decide(DuelWithBullet(BotDifficulty.Hard, ProjectileType.Realistic), BotViews.Open);
+            Assert.NotEqual(BotState.Evade, brain.State);
+        }
+    }
+
+    [Fact]
+    public void ABotIgnoresItsOwnBullets()
+    {
+        var brain = NewBrain();
+        var own = IncomingBullet with { OwnerId = MeId };
+        var view = BotViews.View(BotDifficulty.Hard,
+            [BotViews.Me(MeId, 100, 200), BotViews.Human(HumanId, 600, 200)], [own]);
+
+        brain.Decide(view, BotViews.Open);
+
+        Assert.NotEqual(BotState.Evade, brain.State);
+    }
+
+    // Medium rolls once per bullet: a roll of 0.1 is under its 0.5 chance, a roll of 0.9 is over it
+    private sealed class FixedRollRandom(double roll) : Random(1)
+    {
+        public override double NextDouble() => roll;
+    }
+
+    [Theory]
+    [InlineData(0.1, true)]
+    [InlineData(0.9, false)]
+    public void MediumEvadesOnlyWhenTheRollIsUnderItsChance(double roll, bool evades)
+    {
+        var brain = new BotBrain(MeId, new FixedRollRandom(roll));
+
+        brain.Decide(DuelWithBullet(BotDifficulty.Medium), BotViews.Open);
+
+        Assert.Equal(evades, brain.State == BotState.Evade);
+    }
+
+    [Fact]
+    public void AnUnstuckSequenceWinsOverAnEvade()
+    {
+        var brain = NewBrain();
+        // Wedge the bot first: 8 ticks of pushing without moving, with no bullets around
+        var calm = Duel(BotDifficulty.Hard, 600);
+        for (var tick = 0; tick < StuckDetector.Window; tick++)
+            brain.Decide(calm, BotViews.Walled);
+
+        brain.Decide(DuelWithBullet(BotDifficulty.Hard), BotViews.Walled);
+
+        Assert.Equal(BotState.Unstuck, brain.State);
+    }
 }

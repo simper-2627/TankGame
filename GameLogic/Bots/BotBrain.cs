@@ -14,6 +14,7 @@ public sealed class BotBrain
     public const double MaxFightDistance = 400;
     // 5 ticks reversing, then 5 ticks sideways
     public const int UnstuckTicks = 10;
+    public const int EvadeTicks = 5;
 
     private readonly Random random;
     private readonly TargetTracker targets = new();
@@ -34,6 +35,10 @@ public sealed class BotBrain
     private BotState? overrideState;
     private int unstuckTicksLeft;
     private int unstuckSide = 1;
+    private int evadeTicksLeft;
+    private Keys evadeKeys;
+    // Whether this bot decided to dodge a given bullet: rolled once per bullet, not once per tick
+    private readonly Dictionary<Guid, bool> evadeRolls = [];
 
     public BotBrain(Guid tankId, Random random)
     {
@@ -84,13 +89,17 @@ public sealed class BotBrain
 
         var direction = fsm == BotState.Attack ? AttackDirection(toTarget, distance) : toTarget;
         var move = WithUnstuck(me, direction, BotSteering.Toward(direction.X, direction.Y));
+        if (overrideState == BotState.Unstuck)
+            evadeTicksLeft = 0;
+        else
+            move = WithEvade(view, myCenter, profile, move);
         lastMove = move;
 
         // The game only fires when Shoot goes from off to on, so every press is followed by a release
         var shoot = false;
         if (shootHeld)
             shootHeld = false;
-        else if ((fsm == BotState.Attack || overrideState == BotState.Unstuck) && lineOfSight && (me.ReloadMsLeft ?? 0) == 0)
+        else if ((fsm == BotState.Attack || overrideState is BotState.Unstuck or BotState.Evade) && lineOfSight && (me.ReloadMsLeft ?? 0) == 0)
             shoot = shootHeld = true;
 
         var instantShot = view.Settings.Projectile == ProjectileType.Realistic;
@@ -139,6 +148,36 @@ public sealed class BotBrain
             : BotSteering.Toward(-lastDirection.Y * unstuckSide, lastDirection.X * unstuckSide);
     }
 
+    // A travelling bullet about to hit: step sideways out of its line for a moment. Instant shots can't be dodged
+    private Keys WithEvade(GameState view, (double X, double Y) myCenter, BotProfile profile, Keys move)
+    {
+        var bullets = view.Bullets ?? [];
+        foreach (var gone in evadeRolls.Keys.Where(id => !bullets.Any(bullet => bullet.Id == id)).ToList())
+            evadeRolls.Remove(gone);
+
+        if (evadeTicksLeft == 0 && view.Settings.Projectile == ProjectileType.DumbBubbles && profile.EvadeChance > 0)
+        {
+            foreach (var bullet in bullets.Where(bullet => bullet.OwnerId != TankId))
+            {
+                if (BotSenses.Threat(bullet, myCenter, view.Settings.BulletSpeed) is not { } dodge)
+                    continue;
+                if (!evadeRolls.TryGetValue(bullet.Id, out var willDodge))
+                    evadeRolls[bullet.Id] = willDodge = random.NextDouble() < profile.EvadeChance;
+                if (!willDodge)
+                    continue;
+                evadeTicksLeft = EvadeTicks;
+                evadeKeys = BotSteering.Toward(dodge.X, dodge.Y);
+                break;
+            }
+        }
+
+        if (evadeTicksLeft == 0)
+            return move;
+        evadeTicksLeft--;
+        overrideState = BotState.Evade;
+        return evadeKeys;
+    }
+
     private double NextAimError() => random.NextDouble() * 2 - 1;
 
     private PlayerInputRequest Input(GameState view, Keys move, bool shoot, (int X, int Y)? aim) => new()
@@ -166,6 +205,8 @@ public sealed class BotBrain
         stuck.Reset();
         lastMove = Keys.None;
         unstuckTicksLeft = 0;
+        evadeTicksLeft = 0;
+        evadeRolls.Clear();
         overrideState = null;
         return Input(view, Keys.None, shoot: false, aim: null);
     }
