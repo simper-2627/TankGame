@@ -29,7 +29,8 @@
       @if (game.Status == GameStatus.Ended)
       {
         <div class="alert alert-info py-2 mb-2">
-          @(game.WinnerId is null ? "Draw!"
+          @(game.BotsWon ? "The bots won!"
+            : game.WinnerId is null ? "Draw!"
             : game.WinnerId == PlayerId ? "You win!"
             : $"{game.WinnerId.Value.ToString()[^5..]} wins")
         </div>
@@ -59,7 +60,7 @@
           <div class="spawn-marker" title="You respawn here"
                style="@($"left: {spawn.X}px; top: {spawn.Y - game.DeveloperSettings.VisualTopOffset}px; width: {Tank.Size}px; height: {Tank.Size}px;")"></div>
         }
-        <BulletsComponent Bullets="@(game.Bullets ?? [])" />
+        <BulletsComponent Bullets="@(game.Bullets ?? [])" Tanks="@(game.Tanks ?? [])" />
         <ExplosionsComponent Explosions="@(game.Explosions ?? [])" />
       </PlayerControls>
     @if (viewportMeasured && game.Map is { Mode: MapMode.Foggish } fogMap)
@@ -90,13 +91,14 @@
         <h3 style="font-size: 1rem; margin-bottom: 12px;">Developer settings</h3>
         <button type="button" class="btn btn-outline-secondary mb-3" @onclick="ResetDeveloperSettings">Reset to defaults</button>
         <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddTargetTank">Add target tank</button>
+        <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddBot">Add bot</button>
         <table class="table table-sm small mb-3">
           <thead><tr><th>Tank</th><th>HP</th><th>Lives</th><th>Hits</th></tr></thead>
           <tbody>
             @foreach (var tank in game.Tanks ?? [])
             {
               <tr>
-                <td>@tank.Id.ToString()[^5..]@(tank.Id == PlayerId ? " (you)" : "")</td>
+                <td>@tank.Id.ToString()[^5..]@(tank.IsBot ? " 🤖" : "")@(tank.Id == PlayerId ? " (you)" : "")</td>
                 <td>@(tank.Health is int health ? $"{health}/{game.Settings.Health}" : "?")</td>
                 <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : tank.Deaths is int deaths ? (game.Settings.Lives - deaths).ToString() : "?")</td>
                 <td>@tank.HitsLanded</td>
@@ -159,7 +161,8 @@
     @if (game.CreatorId == PlayerId)
     {
       <MatchSettingsPanel Settings="game.Settings" Changed="SendMatchSettings"
-                          AllowLockedEdits="@(game.MatchType == GameMatchTypes.DeveloperSimulation)" />
+                          AllowLockedEdits="@(game.MatchType == GameMatchTypes.DeveloperSimulation)"
+                          ShowBotDifficulty="@(game.MatchType != GameMatchTypes.Multiplayer || game.Settings.BotCount > 0)" />
     }
       </div>
     </dialog>
@@ -399,6 +402,12 @@
   private async Task AddTargetTank()
   {
     await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "")!;
+  }
+
+  // Dev simulation only: a computer tank that uses the match's bot difficulty
+  private async Task AddBot()
+  {
+    await signalR.HubConnection?.SendAsync(Messages.AddBot, GameName)!;
   }
 
   private async Task SetSlideAlongWalls(ChangeEventArgs e)
