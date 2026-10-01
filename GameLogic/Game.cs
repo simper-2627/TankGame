@@ -33,6 +33,23 @@ public class Game
     public MatchSettings Settings { get => settings; init => settings = MatchSettings.Sanitize(value); }
     // First player to join; only they can change settings during the match
     public Guid? CreatorId { get; private set; }
+
+    private bool botsJoined;
+    private int HumanCount => Tanks.Count(t => !t.IsBot);
+
+    // Bots this match will have: the setting, capped so humans keep their seats (single player needs room for the creator,
+    // multiplayer for two humans). A With bots match always has at least one. Developer simulation adds its bots by hand
+    public int BotSlots
+    {
+        get
+        {
+            if (MatchType == GameMatchTypes.DeveloperSimulation)
+                return 0;
+            var single = MatchType == GameMatchTypes.Bots;
+            var wanted = single ? Math.Max(1, Settings.BotCount) : Settings.BotCount;
+            return Math.Clamp(wanted, 0, Math.Max(0, Map.MaxPlayers - (single ? 1 : 2)));
+        }
+    }
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
     public IEnumerable<Explosion> Explosions { get; internal set; } = [];
@@ -157,17 +174,38 @@ public class Game
     {
         lock (StateLock)
         {
-        if (Status == GameStatus.Ended)
-            throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+            if (Status == GameStatus.Ended)
+                throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+            // A match with bots is the creator's alone; the bots fill the other seats
+            if (MatchType == GameMatchTypes.Bots && HumanCount >= 1)
+                throw new InvalidOperationException($"cannot join game, it is single player: {Name}");
+            if (Tanks.Count() >= Map.MaxPlayers)
+                throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
 
-        if (Tanks.Count() >= Map.MaxPlayers)
-            throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
+            var id = AddTank(playerName, isBot: false);
+            CreatorId ??= id;
+            // Bots arrive with the creator in single player and with the 2nd human in multiplayer; until then nobody
+            // would be fighting them. Their seats come out of the same limit as everyone's, so humans can't take them
+            if (!botsJoined && BotSlots > 0 && HumanCount == (MatchType == GameMatchTypes.Bots ? 1 : 2))
+            {
+                botsJoined = true;
+                for (var i = 0; i < BotSlots; i++)
+                    AddTank(null, isBot: true);
+            }
+            return id;
+        }
+    }
+
+    // Caller holds StateLock. No free spawn point means the tank waits, like a respawn
+    private Guid AddTank(string? playerName, bool isBot)
+    {
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         var newTank = new Tank
         {
             Name = string.IsNullOrWhiteSpace(playerName)
                 ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
                 : playerName.Trim(),
+            IsBot = isBot,
             PositionX = spawnPoint?.X ?? 0,
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,
@@ -175,11 +213,9 @@ public class Game
             Health = spawnPoint is null ? 0 : Settings.Health
         };
         Tanks = Tanks.Append(newTank);
-        CreatorId ??= newTank.Id;
         if (Tanks.Count() == 2)
             StartedAtTick = Tick;
         return newTank.Id;
-        }
     }
 
     // Returns true when an instant shot just landed, so the caller can push the explosion to clients right away

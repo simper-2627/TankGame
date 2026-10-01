@@ -18,13 +18,22 @@ public class Lobby
 
   public Game CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null)
   {
+    var type = matchType switch
+    {
+      GameMatchTypes.DeveloperSimulation => GameMatchTypes.DeveloperSimulation,
+      GameMatchTypes.Bots => GameMatchTypes.Bots,
+      _ => GameMatchTypes.Multiplayer
+    };
+    var map = mapSource.GetByName(mapName);
+    // Bots can't find their way around the bigger maps yet
+    if (type == GameMatchTypes.Bots && map.Mode != MapMode.Standard)
+      throw new InvalidOperationException($"bot matches only support Standard maps: {map.Name}");
+
     var newGame = new Game(context)
     {
       Name = name,
-      MatchType = matchType == GameMatchTypes.DeveloperSimulation
-        ? GameMatchTypes.DeveloperSimulation
-        : GameMatchTypes.Multiplayer,
-      Map = mapSource.GetByName(mapName),
+      MatchType = type,
+      Map = map,
       Settings = settings ?? new MatchSettings()
     };
 
