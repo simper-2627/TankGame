@@ -51,6 +51,8 @@ public record TankState
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
     public bool IsBot { get; init; }
+    // What the bot is doing (SEEK, ATTACK, ...); only sent in Developer simulation, where it's drawn above the tank
+    public string? BotState { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }

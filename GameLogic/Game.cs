@@ -127,6 +127,9 @@ public class Game
             Id = t.Id,
             Name = t.Name,
             IsBot = t.IsBot,
+            BotState = MatchType == GameMatchTypes.DeveloperSimulation && botBrains.TryGetValue(t.Id, out var brain)
+                ? brain.State.ToString().ToUpperInvariant()
+                : null,
             InputSequence = t.InputSequence,
             PositionX = t.PositionX,
             PositionY = t.PositionY,
@@ -174,6 +177,17 @@ public class Game
         if (anonymous.Count > 0)
             sends.Add(hubContext.Clients.Clients(anonymous).SendAsync(Messages.GameUpdate, shared));
         await Task.WhenAll(sends);
+    }
+
+    // Developer simulation only: a bot on demand, so its state label can be watched while tuning
+    public Guid? AddBot()
+    {
+        lock (StateLock)
+        {
+            if (MatchType != GameMatchTypes.DeveloperSimulation || Status == GameStatus.Ended || Tanks.Count() >= Map.MaxPlayers)
+                return null;
+            return AddTank(null, isBot: true);
+        }
     }
 
     // A blank name (quick join, or no name set) gets a generated one that no one else in the game has

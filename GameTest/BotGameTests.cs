@@ -90,4 +90,64 @@ public class BotGameTests
         Assert.Equal(BotDifficulty.Hard, game.Settings.BotDifficulty);
         Assert.Equal(2, game.Settings.BotCount);
     }
+
+    [Fact]
+    public void DeveloperSimulationCanAddABotOnDemand()
+    {
+        var game = TestGames.NewGame(matchType: GameMatchTypes.DeveloperSimulation);
+        var human = game.JoinGame();
+
+        var botId = game.AddBot();
+
+        Assert.NotNull(botId);
+        Assert.True(game.Tanks.Single(t => t.Id == botId).IsBot);
+        Assert.Equal(human, game.CreatorId);
+        Assert.NotNull(game.StartedAtTick);
+    }
+
+    [Fact]
+    public void OtherMatchTypesCannotAddABotByHand()
+    {
+        var game = TestGames.NewGame();
+        game.JoinGame();
+
+        Assert.Null(game.AddBot());
+        Assert.Single(game.Tanks);
+    }
+
+    [Fact]
+    public async Task DeveloperSimulationShowsTheBotsState()
+    {
+        var game = TestGames.NewGame(new MatchSettings { BotDifficulty = BotDifficulty.Hard },
+            matchType: GameMatchTypes.DeveloperSimulation);
+        game.JoinGame();
+        var botId = game.AddBot();
+
+        await game.loopRunner.ProcessGameTick();
+
+        var label = game.GetGameState().Tanks!.Single(t => t.Id == botId).BotState;
+        Assert.Equal("ATTACK", label);
+    }
+
+    [Fact]
+    public async Task OutsideDeveloperSimulationTheBotsStateStaysPrivate()
+    {
+        var (game, _, bot) = BotDuel();
+
+        await game.loopRunner.ProcessGameTick();
+
+        Assert.Null(game.GetGameState().Tanks!.Single(t => t.Id == bot).BotState);
+    }
+
+    [Fact]
+    public async Task TheHubAddsABotToADeveloperSimulation()
+    {
+        var lobby = new Lobby(new FakeHubContext());
+        lobby.CreateGame("dev", null, GameMatchTypes.DeveloperSimulation).JoinGame();
+        var hub = new LobbyHub(lobby);
+
+        await hub.AddBot("dev");
+
+        Assert.Equal(2, lobby.Games.Single().Tanks.Count());
+    }
 }

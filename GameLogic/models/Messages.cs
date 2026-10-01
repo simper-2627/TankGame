@@ -12,4 +12,5 @@ public static class Messages
   public static readonly string PlayerInput = "PlayerInput";
   public static readonly string UpdateDeveloperSettings = "UpdateDeveloperSettings";
   public static readonly string UpdateMatchSettings = "UpdateMatchSettings";
+  public static readonly string AddBot = "AddBot";
 }
