@@ -48,6 +48,7 @@ public record TankState
     public long InputSequence { get; init; }
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
+    public bool IsBot { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }

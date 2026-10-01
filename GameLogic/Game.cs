@@ -100,6 +100,7 @@ public class Game
         {
             Id = t.Id,
             Name = t.Name,
+            IsBot = t.IsBot,
             InputSequence = t.InputSequence,
             PositionX = t.PositionX,
             PositionY = t.PositionY,

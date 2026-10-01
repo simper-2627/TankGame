@@ -6,6 +6,8 @@ public record Tank
     public const int Size = 60;
     public Guid Id { get; } = Guid.NewGuid();
     public string Name { get; init; } = "";
+    // Computer-controlled; public to everyone so the screen can draw bots in red
+    public bool IsBot { get; init; }
     public int PositionY { get; init; } = 50;
     public int PositionX { get; init; } = 50;
     public int Angle { get; init; } = -45;
