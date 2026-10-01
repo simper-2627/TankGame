@@ -8,11 +8,11 @@ public class Game
 {
     private readonly IHubContext<LobbyHub> hubContext;
     internal object StateLock { get; } = new();
-    // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
     internal Random SpawnRandom { get; init; } = Random.Shared;
 
     // Bot aim error, strafing and dodging draw from this; tests swap in a fixed seed
     internal Random BotRandom { get; init; } = Random.Shared;
+    // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
     public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     public GameStatus Status { get; private set; } = GameStatus.Playing;
@@ -241,7 +241,6 @@ public class Game
         return newTank.Id;
     }
 
-    // Returns true when an instant shot just landed, so the caller can push the explosion to clients right away
     // Each bot reads the same filtered view a human gets and answers with the same input a human would send.
     // Caller holds StateLock (the game loop does; ReceiveUserInput takes the same lock again, which is fine)
     internal void RunBots()
@@ -250,11 +249,20 @@ public class Game
             return;
         foreach (var brain in botBrains.Values)
         {
-            var view = GetGameState(includeMap: false, viewerId: brain.TankId);
-            ReceiveUserInput(brain.Decide(view, Map));
+            // One bad bot must not stop the other bots or the game loop; it just skips this tick
+            try
+            {
+                var view = GetGameState(includeMap: false, viewerId: brain.TankId);
+                ReceiveUserInput(brain.Decide(view, Map));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Bot {brain.TankId} failed in game {Name}: {ex}");
+            }
         }
     }
 
+    // Returns true when an instant shot just landed, so the caller can push the explosion to clients right away
     public bool ReceiveUserInput(PlayerInputRequest request)
     {
         lock (StateLock)

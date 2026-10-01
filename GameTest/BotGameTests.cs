@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using GameLogic;
 using GameLogic.Game;
 
@@ -6,10 +7,10 @@ namespace GameTest;
 public class BotGameTests
 {
     private static (Game Game, Guid Human, Guid Bot) BotDuel(BotDifficulty difficulty = BotDifficulty.Hard, int bots = 1,
-        FakeClock? clock = null)
+        FakeClock? clock = null, Random? random = null)
     {
         var game = TestGames.NewGame(
-            new MatchSettings { BotCount = bots, BotDifficulty = difficulty, Health = 5 }, clock, GameMatchTypes.Bots);
+            new MatchSettings { BotCount = bots, BotDifficulty = difficulty, Health = 5 }, clock, GameMatchTypes.Bots, random);
         var human = game.JoinGame();
         return (game, human, game.Tanks.First(t => t.IsBot).Id);
     }
@@ -163,5 +164,44 @@ public class BotGameTests
         await hub.AddBot("dev");
 
         Assert.Equal(2, lobby.Games.Single().Tanks.Count());
+    }
+
+    [Fact]
+    public async Task ABotWhoseBrainThrowsDoesNotStopTheTickOrTheOtherBots()
+    {
+        var random = new ThrowsOnce();
+        var (game, _, _) = BotDuel(bots: 2, random: random);
+        random.Armed = true;
+
+        await game.loopRunner.ProcessGameTick();
+
+        Assert.Single(game.Bullets.Where(bullet => game.Tanks.Single(t => t.Id == bullet.OwnerId).IsBot)
+            .Select(bullet => bullet.OwnerId).Distinct());
+    }
+
+    [Fact]
+    public async Task TheHubRefusesToAddABotOutsideDeveloperSimulation()
+    {
+        var lobby = new Lobby(new FakeHubContext());
+        lobby.CreateGame("mp", null, GameMatchTypes.Multiplayer).JoinGame();
+        var hub = new LobbyHub(lobby);
+
+        await Assert.ThrowsAsync<HubException>(() => hub.AddBot("mp"));
+    }
+
+    // Once armed, fails the first time any bot asks it for a number, then behaves
+    private sealed class ThrowsOnce : Random
+    {
+        public bool Armed { get; set; }
+        private bool thrown;
+        private void Maybe()
+        {
+            if (!Armed || thrown) return;
+            thrown = true;
+            throw new InvalidOperationException("bad bot");
+        }
+        public override double NextDouble() { Maybe(); return base.NextDouble(); }
+        public override int Next(int maxValue) { Maybe(); return base.Next(maxValue); }
+        public override int Next(int minValue, int maxValue) { Maybe(); return base.Next(minValue, maxValue); }
     }
 }

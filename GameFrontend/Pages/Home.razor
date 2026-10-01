@@ -277,7 +277,7 @@
                 </div>
               </div>
             </div>
-            @if (selectedMatchType != GameMatchTypes.DeveloperSimulation)
+            @if (selectedMatchType != GameMatchTypes.DeveloperSimulation && selectedMode == MapMode.Standard)
             {
               <div class="field-row">
                 <div class="field">
@@ -483,7 +483,7 @@
   public void Dispose() { foreach (var subscription in subscriptions) subscription.Dispose(); }
 
   private static readonly string[] steps = ["Mission", "Battlefield", "Loadout", "Rules", "Deploy"];
-  private static readonly string[] TankColors = ["tankGreen", "tankRed", "tankBlue", "tankBeige", "tankBlack"];
+  private static readonly string[] TankColors = ["tankGreen", "tankBlue", "tankBeige", "tankBlack"];
   private static readonly string[] NameAdjectives = ["Iron", "Steel", "Crimson", "Thunder", "Dust", "Rolling", "Silent", "Scorched", "Midnight", "Rusty"];
   private static readonly string[] NameNouns = ["Viper", "Storm", "Hammer", "Rhino", "Anvil", "Fury", "Badger", "Tread", "Cyclone", "Bastion"];
   private int LastStep => steps.Length - 1;
@@ -509,6 +509,12 @@
   private void SelectMode(MapMode mode)
   {
     selectedMode = mode;
+    // Bots only play on Standard maps for now
+    if (mode != MapMode.Standard)
+    {
+      botCount = 0;
+      clearBotsToWin = false;
+    }
     selectedMapName = MapCatalog.FixedMaps.First(m => m.Mode == mode).Name;
   }
   private string selectedMapName = MapCatalog.DefaultMap.Name;
@@ -522,10 +528,14 @@
 
   private void SelectMatchType(string matchType)
   {
+    var fromBots = selectedMatchType == GameMatchTypes.Bots;
     selectedMatchType = matchType;
     // Bots only play on Standard maps for now
     if (matchType == GameMatchTypes.Bots && selectedMode != MapMode.Standard)
       SelectMode(MapMode.Standard);
+    // Multiplayer starts without bots, not with the one With bots needed
+    if (fromBots && matchType == GameMatchTypes.Multiplayer)
+      botCount = 0;
     botCount = Math.Clamp(botCount, MinBots, MaxBots);
   }
   private int reloadMs = new MatchSettings().ReloadMs;
@@ -660,9 +670,9 @@
       RespawnSeconds = respawnSeconds,
       SpeedMultiplier = speedMultiplier,
       TimeLimitMinutes = timeLimitMinutes,
-      BotCount = selectedMatchType == GameMatchTypes.DeveloperSimulation ? 0 : botCount,
+      BotCount = selectedMatchType == GameMatchTypes.DeveloperSimulation || selectedMode != MapMode.Standard ? 0 : botCount,
       BotDifficulty = botDifficulty,
-      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && clearBotsToWin
+      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && selectedMode == MapMode.Standard && clearBotsToWin
     };
     try
     {

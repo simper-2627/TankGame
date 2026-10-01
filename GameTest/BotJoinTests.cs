@@ -149,4 +149,22 @@ public class BotJoinTests
         Assert.Equal(GameMatchTypes.Bots, game.MatchType);
         Assert.Single(lobby.Games);
     }
+
+    [Theory]
+    [InlineData(MapMode.BigMap, 0)]
+    [InlineData(MapMode.Foggish, 0)]
+    [InlineData(MapMode.Standard, 3)]
+    public void MultiplayerKeepsItsBotsOnStandardMapsOnly(MapMode mode, int expectedBots)
+    {
+        var lobby = new Lobby(new FakeHubContext());
+        var map = MapCatalog.FixedMaps.First(m => m.Mode == mode).Name;
+
+        var game = lobby.CreateGame("mp", map, GameMatchTypes.Multiplayer,
+            new MatchSettings { BotCount = 3, ClearBotsToWin = true });
+        game.JoinGame();
+        game.JoinGame();
+
+        Assert.Equal(expectedBots, game.Tanks.Count(t => t.IsBot));
+        Assert.Equal(expectedBots > 0, game.Settings.ClearBotsToWin);
+    }
 }

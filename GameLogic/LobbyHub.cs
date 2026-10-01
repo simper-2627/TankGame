@@ -105,7 +105,8 @@ public class LobbyHub : Hub
   {
     var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
       ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
-    game.AddBot();
+    if (game.AddBot() is null)
+      throw new HubException("cannot add a bot to this battle");
     await game.BroadcastUpdate();
   }
 

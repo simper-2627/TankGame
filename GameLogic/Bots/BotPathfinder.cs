@@ -60,8 +60,9 @@ public static class BotPathfinder
     private static bool Fits(GameMap map, (double X, double Y) center, int box) =>
         !map.Blocks(new RectangleArea((int)Math.Floor(center.X - box / 2.0), (int)Math.Floor(center.Y - box / 2.0), box, box));
 
-    // From each point, jump straight to the furthest later point in a clear line, so the bot drives a few long legs
-    // instead of zig-zagging cell by cell. Walking forward keeps it to about one check per point
+    // From each point, keep extending the leg while the next point is still in a clear line (stopping at the first
+    // blocked one), so the bot drives a few long legs instead of zig-zagging cell by cell. Walking forward keeps it
+    // to about one check per point
     private static List<(double X, double Y)> StringPull(GameMap map, List<(double X, double Y)> points, int box)
     {
         var waypoints = new List<(double X, double Y)>();

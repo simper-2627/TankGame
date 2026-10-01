@@ -29,12 +29,17 @@ public class Lobby
     if (type == GameMatchTypes.Bots && map.Mode != MapMode.Standard)
       throw new InvalidOperationException($"bot matches only support Standard maps: {map.Name}");
 
+    var chosen = MatchSettings.Sanitize(settings ?? new MatchSettings());
+    // Bots in Multiplayer are Standard-map only for now
+    if (type == GameMatchTypes.Multiplayer && map.Mode != MapMode.Standard)
+      chosen = chosen with { BotCount = 0, ClearBotsToWin = false };
+
     var newGame = new Game(context)
     {
       Name = name,
       MatchType = type,
       Map = map,
-      Settings = settings ?? new MatchSettings()
+      Settings = chosen
     };
 
     Games.Add(newGame);

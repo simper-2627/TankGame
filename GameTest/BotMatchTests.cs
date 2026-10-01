@@ -59,14 +59,17 @@ public class BotMatchTests(ITestOutputHelper output)
             SpawnRandom = new FirstSpawnRandom(),
             BotRandom = new Random(3),
         };
-        game.JoinGame();
+        var human = game.JoinGame();
         var durations = new List<double>();
+        var botBullets = new HashSet<Guid>();
 
         for (var tick = 0; tick < 120; tick++)
         {
             clock.Advance(100);
             var at = Stopwatch.GetTimestamp();
             await game.loopRunner.ProcessGameTick();
+            foreach (var bullet in game.Bullets.Where(bullet => bullet.OwnerId != human))
+                botBullets.Add(bullet.Id);
             _ = JsonSerializer.SerializeToUtf8Bytes(game.GetGameState(includeMap: false));
             if (tick >= 20)
                 durations.Add(Stopwatch.GetElapsedTime(at).TotalMilliseconds);
@@ -76,6 +79,9 @@ public class BotMatchTests(ITestOutputHelper output)
         var p95 = durations[(int)(durations.Count * .95)];
         output.WriteLine($"7 bots: simulation + snapshot serialization p95={p95:F2}ms, max={durations[^1]:F2}ms");
         Assert.Equal(8, game.Tanks.Count());
+        // The timing only means something if the bots were really acting the whole time
+        Assert.False(game.Tanks.Single(t => t.Id == human).Eliminated, "the human went down, so the match may have ended early");
+        Assert.NotEmpty(botBullets);
         Assert.True(p95 < 100, $"p95 {p95:F2}ms exceeds the 100ms simulation budget");
     }
 }
