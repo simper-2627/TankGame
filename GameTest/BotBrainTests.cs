@@ -17,6 +17,10 @@ public class BotBrainTests
         BotViews.View(difficulty, [BotViews.Me(MeId, 100, 200, reloadMsLeft), BotViews.Human(HumanId, humanX, 200)],
             projectile: projectile);
 
+    // The same duel shifted along the row each tick, so a bot that keeps pushing is not mistaken for a wedged one
+    private static GameState DriftingDuel(BotDifficulty difficulty, int humanX, int tick) =>
+        BotViews.View(difficulty, [BotViews.Me(MeId, 100 + tick * 8, 200), BotViews.Human(HumanId, humanX + tick * 8, 200)]);
+
     [Fact]
     public void SeeksTheHumanUntilItHasHadAClearViewForTheReactionDelay()
     {
@@ -55,7 +59,7 @@ public class BotBrainTests
 
         for (var tick = 0; tick < 40; tick++)
         {
-            var input = brain.Decide(Duel(BotDifficulty.Hard, 420), BotViews.Open);
+            var input = brain.Decide(DriftingDuel(BotDifficulty.Hard, 420, tick), BotViews.Open);
             Assert.False(input.Left || input.Right);
             Assert.True(input.Up || input.Down);
         }
@@ -88,7 +92,7 @@ public class BotBrainTests
         var brain = NewBrain();
 
         for (var tick = 0; tick < 10; tick++)
-            Assert.False(brain.Decide(Duel(BotDifficulty.Hard, 600), BotViews.Walled).Shoot);
+            Assert.False(brain.Decide(DriftingDuel(BotDifficulty.Hard, 600, tick), BotViews.Walled).Shoot);
         Assert.Equal(BotState.Seek, brain.State);
     }
 
@@ -222,5 +226,77 @@ public class BotBrainTests
         var noLead = instant.Decide(Duel(BotDifficulty.Hard, 430, projectile: ProjectileType.Realistic), BotViews.Open);
 
         Assert.InRange(noLead.AimX!.Value, 440, 480);
+    }
+
+    [Fact]
+    public void AWedgedBotBacksUpThenSidestepsThenCarriesOn()
+    {
+        var brain = NewBrain();
+        // The bot never gets anywhere: the same view every tick, wall in the way (Seek straight at the human)
+        var view = Duel(BotDifficulty.Hard, 600);
+
+        // It pushes right for 8 ticks without moving
+        for (var tick = 1; tick <= StuckDetector.Window; tick++)
+        {
+            var input = brain.Decide(view, BotViews.Walled);
+            Assert.Equal(BotState.Seek, brain.State);
+            Assert.True(input.Right);
+        }
+
+        // Then it reverses for 5 ticks
+        for (var tick = 0; tick < 5; tick++)
+        {
+            var input = brain.Decide(view, BotViews.Walled);
+            Assert.Equal(BotState.Unstuck, brain.State);
+            Assert.True(input.Left);
+            Assert.False(input.Right);
+        }
+
+        // Then 5 ticks sideways
+        for (var tick = 0; tick < 5; tick++)
+        {
+            var input = brain.Decide(view, BotViews.Walled);
+            Assert.Equal(BotState.Unstuck, brain.State);
+            Assert.False(input.Left || input.Right);
+            Assert.True(input.Up || input.Down);
+        }
+
+        // And it goes back to what it was doing
+        var after = brain.Decide(view, BotViews.Walled);
+        Assert.Equal(BotState.Seek, brain.State);
+        Assert.True(after.Right);
+    }
+
+    [Fact]
+    public void ABotThatKeepsMovingIsNeverUnstuck()
+    {
+        var brain = NewBrain();
+
+        for (var tick = 0; tick < 60; tick++)
+        {
+            var view = BotViews.View(BotDifficulty.Hard,
+                [BotViews.Me(MeId, 100 + tick * 8, 200), BotViews.Human(HumanId, 700, 200)]);
+            brain.Decide(view, BotViews.Open);
+            Assert.NotEqual(BotState.Unstuck, brain.State);
+        }
+    }
+
+    [Fact]
+    public void ABotStillAimsAndMayShootWhileUnstuck()
+    {
+        var brain = NewBrain();
+        var view = Duel(BotDifficulty.Hard, 420);
+        // Strafing in place for 8 ticks then 1 more: wedged, with a clear shot at the human
+        PlayerInputRequest? input = null;
+        var shots = 0;
+        for (var tick = 0; tick < 40; tick++)
+        {
+            input = brain.Decide(view, BotViews.Open);
+            if (brain.State == BotState.Unstuck && input.Shoot)
+                shots++;
+        }
+
+        Assert.NotNull(input!.AimX);
+        Assert.True(shots > 0, "an unstuck bot with a clear shot should still fire");
     }
 }

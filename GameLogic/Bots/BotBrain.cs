@@ -12,6 +12,8 @@ public sealed class BotBrain
     public const int LostSightTicks = 5;
     public const double MinFightDistance = 250;
     public const double MaxFightDistance = 400;
+    // 5 ticks reversing, then 5 ticks sideways
+    public const int UnstuckTicks = 10;
 
     private readonly Random random;
     private readonly TargetTracker targets = new();
@@ -26,6 +28,12 @@ public sealed class BotBrain
     private double aimError;
     private int strafeSign = 1;
     private int strafeTicksLeft;
+    private readonly StuckDetector stuck = new();
+    private Keys lastMove = Keys.None;
+    private (double X, double Y) lastDirection;
+    private BotState? overrideState;
+    private int unstuckTicksLeft;
+    private int unstuckSide = 1;
 
     public BotBrain(Guid tankId, Random random)
     {
@@ -37,10 +45,11 @@ public sealed class BotBrain
     public Guid TankId { get; }
 
     // What the bot is doing right now; shown above the tank in Developer simulation
-    public BotState State => fsm;
+    public BotState State => overrideState ?? fsm;
 
     public PlayerInputRequest Decide(GameState view, GameMap map)
     {
+        overrideState = null;
         var profile = BotProfile.For(view.Settings.BotDifficulty);
         var dev = view.DeveloperSettings;
         var tanks = (view.Tanks ?? []).ToList();
@@ -74,13 +83,14 @@ public sealed class BotBrain
             fsm = BotState.Seek;
 
         var direction = fsm == BotState.Attack ? AttackDirection(toTarget, distance) : toTarget;
-        var move = BotSteering.Toward(direction.X, direction.Y);
+        var move = WithUnstuck(me, direction, BotSteering.Toward(direction.X, direction.Y));
+        lastMove = move;
 
         // The game only fires when Shoot goes from off to on, so every press is followed by a release
         var shoot = false;
         if (shootHeld)
             shootHeld = false;
-        else if (fsm == BotState.Attack && lineOfSight && (me.ReloadMsLeft ?? 0) == 0)
+        else if ((fsm == BotState.Attack || overrideState == BotState.Unstuck) && lineOfSight && (me.ReloadMsLeft ?? 0) == 0)
             shoot = shootHeld = true;
 
         var instantShot = view.Settings.Projectile == ProjectileType.Realistic;
@@ -107,6 +117,28 @@ public sealed class BotBrain
         return (-toTarget.Y * strafeSign, toTarget.X * strafeSign);
     }
 
+    // Pushing a key but going nowhere: back up for a moment, then sidestep, then carry on with what it was doing
+    private Keys WithUnstuck(TankState me, (double X, double Y) wanted, Keys move)
+    {
+        if (unstuckTicksLeft == 0 && stuck.Update(me.PositionX, me.PositionY, lastMove.Any))
+        {
+            unstuckTicksLeft = UnstuckTicks;
+            unstuckSide = random.Next(2) == 0 ? -1 : 1;
+        }
+        if (unstuckTicksLeft == 0)
+        {
+            lastDirection = wanted;
+            return move;
+        }
+
+        overrideState = BotState.Unstuck;
+        var reversing = UnstuckTicks - unstuckTicksLeft < UnstuckTicks / 2;
+        unstuckTicksLeft--;
+        return reversing
+            ? BotSteering.Toward(-lastDirection.X, -lastDirection.Y)
+            : BotSteering.Toward(-lastDirection.Y * unstuckSide, lastDirection.X * unstuckSide);
+    }
+
     private double NextAimError() => random.NextDouble() * 2 - 1;
 
     private PlayerInputRequest Input(GameState view, Keys move, bool shoot, (int X, int Y)? aim) => new()
@@ -131,6 +163,10 @@ public sealed class BotBrain
         clearTicks = 0;
         blockedTicks = 0;
         shootHeld = false;
+        stuck.Reset();
+        lastMove = Keys.None;
+        unstuckTicksLeft = 0;
+        overrideState = null;
         return Input(view, Keys.None, shoot: false, aim: null);
     }
 }
