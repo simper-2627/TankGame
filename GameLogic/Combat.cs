@@ -158,6 +158,10 @@ public static class Combat
         var botsAlive = tanks.Count(tank => tank.IsBot && !tank.Eliminated);
         var timeUp = ticksLeft is <= 0;
 
+        // A multiplayer match can't end until a second human has joined (the Developer simulation can add a bot early)
+        if (!singlePlayer && tanks.Count(tank => !tank.IsBot) < 2)
+            return MatchResult.Ongoing;
+
         if (humansAlive.Count == 0)
             return botsAlive > 0 ? new MatchResult(true, null, BotsWon: true) : new MatchResult(true, null);
 

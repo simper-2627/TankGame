@@ -106,6 +106,19 @@ public class BotGameTests
     }
 
     [Fact]
+    public async Task DeveloperSimulationWithOneHumanAndABotKeepsPlaying()
+    {
+        var game = TestGames.NewGame(matchType: GameMatchTypes.DeveloperSimulation);
+        game.JoinGame();
+        game.AddBot();
+
+        for (var tick = 0; tick < 5; tick++)
+            await game.loopRunner.ProcessGameTick();
+
+        Assert.Equal(GameStatus.Playing, game.Status);
+    }
+
+    [Fact]
     public void OtherMatchTypesCannotAddABotByHand()
     {
         var game = TestGames.NewGame();
@@ -125,6 +138,7 @@ public class BotGameTests
 
         await game.loopRunner.ProcessGameTick();
 
+        Assert.Equal(GameStatus.Playing, game.Status);
         var label = game.GetGameState().Tanks!.Single(t => t.Id == botId).BotState;
         Assert.Equal("ATTACK", label);
     }

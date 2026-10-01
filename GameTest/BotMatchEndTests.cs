@@ -13,7 +13,8 @@ public class BotMatchEndTests
     [InlineData(true)]
     public void NoHumansLeftMeansTheBotsWin(bool singlePlayer)
     {
-        var result = Combat.DecideResult([Human(eliminated: true), Bot()], null, singlePlayer);
+        // Multiplayer needs two humans to have joined before a result is possible
+        var result = Combat.DecideResult([Human(eliminated: true), Human(eliminated: true), Bot()], null, singlePlayer);
 
         Assert.Equal(new MatchResult(true, null, BotsWon: true), result);
     }
@@ -127,6 +128,24 @@ public class BotMatchEndTests
         var result = Combat.DecideResult([new Tank(), new Tank(), Bot()], 0);
 
         Assert.Equal(new MatchResult(true, null), result);
+    }
+
+    [Fact]
+    public void AMatchWithOnlyOneHumanNeverEndsUnderMultiplayerRules()
+    {
+        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([Human(), Bot()], null));
+        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([Human(eliminated: true), Bot()], null));
+        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([Human(), Bot()], 0));
+    }
+
+    [Fact]
+    public void TimeUpWithABotAliveAndClearTheBotsOffTheRemainingHumanWins()
+    {
+        var winner = Human();
+
+        var result = Combat.DecideResult([winner, Human(eliminated: true), Bot()], 0);
+
+        Assert.Equal(new MatchResult(true, winner.Id), result);
     }
 
     [Fact]
