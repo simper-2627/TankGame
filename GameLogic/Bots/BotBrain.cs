@@ -15,6 +15,11 @@ public sealed class BotBrain
     // 5 ticks reversing, then 5 ticks sideways
     public const int UnstuckTicks = 10;
     public const int EvadeTicks = 5;
+    // A seeking bot plans a new route when its old one is this old, or the human has moved this far from where it led
+    public const int RepathTicks = 10;
+    public const double RepathDistance = 40;
+    // A waypoint this close to the bot's center counts as reached
+    public const double WaypointReachedDistance = 30;
 
     private readonly Random random;
     private readonly TargetTracker targets = new();
@@ -39,6 +44,12 @@ public sealed class BotBrain
     private Keys evadeKeys;
     // Whether this bot decided to dodge a given bullet: rolled once per bullet, not once per tick
     private readonly Dictionary<Guid, bool> evadeRolls = [];
+    // Seek's route around walls; planned is false when there's no route to follow (not planned yet, or out of date)
+    private IReadOnlyList<(double X, double Y)>? path;
+    private bool pathPlanned;
+    private int pathAge;
+    private int pathIndex;
+    private (double X, double Y) pathGoal;
 
     public BotBrain(Guid tankId, Random random)
     {
@@ -87,7 +98,11 @@ public sealed class BotBrain
         else if (fsm == BotState.Attack && blockedTicks >= LostSightTicks)
             fsm = BotState.Seek;
 
-        var direction = fsm == BotState.Attack ? AttackDirection(toTarget, distance) : toTarget;
+        if (fsm == BotState.Attack)
+            pathPlanned = false;
+        var direction = fsm == BotState.Attack
+            ? AttackDirection(toTarget, distance)
+            : SeekDirection(map, dev, myCenter, targetCenter, toTarget);
         var move = WithUnstuck(me, direction, BotSteering.Toward(direction.X, direction.Y));
         if (overrideState == BotState.Unstuck)
             evadeTicksLeft = 0;
@@ -109,6 +124,36 @@ public sealed class BotBrain
             aimError = NextAimError();
 
         return Input(view, move, shoot, aim);
+    }
+
+    // Straight at the human when nothing is in the way; otherwise along a route around the walls
+    private (double X, double Y) SeekDirection(GameMap map, DeveloperGameSettings dev, (double X, double Y) myCenter,
+        (double X, double Y) targetCenter, (double X, double Y) toTarget)
+    {
+        if (BotPathfinder.IsClear(map, myCenter, targetCenter, dev))
+        {
+            pathPlanned = false;
+            return toTarget;
+        }
+
+        // Rate-limited so a few bots planning routes stay cheap; a failed plan is kept just as long
+        if (!pathPlanned || pathAge >= RepathTicks || BotSenses.Distance(targetCenter, pathGoal) > RepathDistance)
+        {
+            path = BotPathfinder.FindPath(map, myCenter, targetCenter, dev);
+            pathPlanned = true;
+            pathAge = 0;
+            pathIndex = 0;
+            pathGoal = targetCenter;
+        }
+        pathAge++;
+
+        while (path is not null && pathIndex < path.Count &&
+               BotSenses.Distance(myCenter, path[pathIndex]) <= WaypointReachedDistance)
+            pathIndex++;
+        if (path is null || pathIndex >= path.Count)
+            return toTarget;
+        var waypoint = path[pathIndex];
+        return (waypoint.X - myCenter.X, waypoint.Y - myCenter.Y);
     }
 
     // Too close: back off. Too far: close in. In range: strafe, switching side every 1-2 seconds
@@ -133,6 +178,8 @@ public sealed class BotBrain
         {
             unstuckTicksLeft = UnstuckTicks;
             unstuckSide = random.Next(2) == 0 ? -1 : 1;
+            // Whatever route got it wedged is no good from here
+            pathPlanned = false;
         }
         if (unstuckTicksLeft == 0)
         {
@@ -207,6 +254,10 @@ public sealed class BotBrain
         unstuckTicksLeft = 0;
         evadeTicksLeft = 0;
         evadeRolls.Clear();
+        path = null;
+        pathPlanned = false;
+        pathAge = 0;
+        pathIndex = 0;
         overrideState = null;
         return Input(view, Keys.None, shoot: false, aim: null);
     }

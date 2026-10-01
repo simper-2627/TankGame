@@ -9,6 +9,9 @@ internal static class BotViews
     public static readonly GameMap Open = TestGames.Arena;
     // A wall across the middle of the arena, between x = 380 and x = 420
     public static readonly GameMap Walled = new("Walled", 800, 400, [new Obstacle(380, 0, 40, 400)], []);
+    // The same wall with an 80 px opening between y = 160 and y = 240
+    public static readonly GameMap WalledWithGap = new("WalledWithGap", 800, 400,
+        [new Obstacle(380, 0, 40, 160), new Obstacle(380, 240, 40, 160)], []);
 
     // The bot itself: it can see its own health and reload
     public static TankState Me(Guid id, int x, int y, int reloadMsLeft = 0, int health = 3) => new()

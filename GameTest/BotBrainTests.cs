@@ -409,4 +409,48 @@ public class BotBrainTests
 
         Assert.Equal(BotState.Unstuck, brain.State);
     }
+
+    [Fact]
+    public void SeekDrivesToTheGapInsteadOfIntoTheWall()
+    {
+        var brain = NewBrain();
+        var dev = new DeveloperGameSettings();
+        var map = BotViews.WalledWithGap;
+        // Bot center (130, 64), human center (630, 64): the straight line runs into the wall, the gap is lower down
+        var (x, y) = (100, 60);
+        var reachedGap = false;
+
+        for (var tick = 0; tick < 60 && !reachedGap; tick++)
+        {
+            var view = BotViews.View(BotDifficulty.Hard, [BotViews.Me(MeId, x, y), BotViews.Human(HumanId, 600, 60)]);
+            var input = brain.Decide(view, map);
+            if (tick == 0)
+                Assert.True(input.Down, "the first move should already head down toward the gap");
+            if (brain.State != BotState.Seek)
+                break;
+
+            // A tiny stand-in for the game: 8 px per pressed key per tick, walls not enforced so a bad move shows
+            x += (input.Right ? 8 : 0) - (input.Left ? 8 : 0);
+            y += (input.Down ? 8 : 0) - (input.Up ? 8 : 0);
+            Assert.False(map.Blocks(Tank.GetCollisionArea(new Tank { PositionX = x, PositionY = y }, dev)),
+                $"tick {tick}: the bot drove into the wall at ({x}, {y})");
+            var center = (X: x + Tank.Size / 2.0, Y: y - dev.VisualTopOffset + Tank.Size / 2.0);
+            reachedGap = center.X > 330 && center.Y > 160 && center.Y < 240;
+        }
+
+        Assert.True(reachedGap, $"the bot never reached the gap; it ended at ({x}, {y})");
+    }
+
+    [Fact]
+    public void OnAnOpenMapSeekStillHeadsStraightForTheHuman()
+    {
+        var brain = NewBrain();
+        var view = BotViews.View(BotDifficulty.Easy, [BotViews.Me(MeId, 100, 60), BotViews.Human(HumanId, 600, 300)]);
+
+        var input = brain.Decide(view, BotViews.Open);
+
+        Assert.Equal(BotState.Seek, brain.State);
+        Assert.True(input.Right && input.Down);
+        Assert.False(input.Left || input.Up);
+    }
 }
