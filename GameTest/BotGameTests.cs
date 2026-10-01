@@ -1,0 +1,93 @@
+using GameLogic;
+using GameLogic.Game;
+
+namespace GameTest;
+
+public class BotGameTests
+{
+    private static (Game Game, Guid Human, Guid Bot) BotDuel(BotDifficulty difficulty = BotDifficulty.Hard, int bots = 1,
+        FakeClock? clock = null)
+    {
+        var game = TestGames.NewGame(
+            new MatchSettings { BotCount = bots, BotDifficulty = difficulty, Health = 5 }, clock, GameMatchTypes.Bots);
+        var human = game.JoinGame();
+        return (game, human, game.Tanks.First(t => t.IsBot).Id);
+    }
+
+    [Fact]
+    public void ABotOnlySeesWhatAHumanWould()
+    {
+        var (game, human, bot) = BotDuel();
+
+        var view = game.GetGameState(viewerId: bot);
+        var seenHuman = view.Tanks!.Single(t => t.Id == human);
+        var seenSelf = view.Tanks!.Single(t => t.Id == bot);
+
+        Assert.Null(seenHuman.Health);
+        Assert.Null(seenHuman.Deaths);
+        Assert.Null(seenHuman.ReloadMsLeft);
+        Assert.Equal(5, seenSelf.Health);
+        Assert.NotNull(seenSelf.ReloadMsLeft);
+    }
+
+    [Fact]
+    public async Task ABotWithAClearShotFiresOnTheFirstTick()
+    {
+        var (game, _, bot) = BotDuel();
+
+        await game.loopRunner.ProcessGameTick();
+
+        Assert.Contains(game.Bullets, bullet => bullet.OwnerId == bot);
+    }
+
+    [Fact]
+    public async Task ABotDrivesTowardsAHumanThatIsFarAway()
+    {
+        var (game, human, bot) = BotDuel();
+        game.Tanks = game.Tanks.Select(t => t.Id == bot ? t with { PositionX = 700, PositionY = 60 } : t).ToArray();
+
+        await game.loopRunner.ProcessGameTick();
+
+        Assert.True(game.Tanks.Single(t => t.Id == bot).PositionX < 700);
+    }
+
+    [Fact]
+    public async Task ABotNeverFiresFasterThanTheReload()
+    {
+        var clock = new FakeClock();
+        var (game, _, bot) = BotDuel(clock: clock);
+        var shotsSeen = new HashSet<Guid>();
+
+        // Reload is 1000 ms and the clock only moves when the test says so, so only the first shot can leave.
+        // Bullets are counted by id as they appear, because the first one hits the human and disappears
+        for (var tick = 0; tick < 20; tick++)
+        {
+            await game.loopRunner.ProcessGameTick();
+            foreach (var bullet in game.Bullets.Where(bullet => bullet.OwnerId == bot))
+                shotsSeen.Add(bullet.Id);
+        }
+
+        Assert.Single(shotsSeen);
+    }
+
+    [Fact]
+    public async Task EveryBotInTheMatchGetsItsInputEachTick()
+    {
+        var (game, _, _) = BotDuel(bots: 2);
+
+        await game.loopRunner.ProcessGameTick();
+
+        Assert.Equal(2, game.Bullets.Select(bullet => bullet.OwnerId).Distinct().Count());
+    }
+
+    [Fact]
+    public void TheCreatorCanChangeTheDifficultyButNotTheBotCount()
+    {
+        var (game, human, _) = BotDuel(BotDifficulty.Easy, bots: 2);
+
+        game.UpdateMatchSettings(human, game.Settings with { BotDifficulty = BotDifficulty.Hard, BotCount = 5 });
+
+        Assert.Equal(BotDifficulty.Hard, game.Settings.BotDifficulty);
+        Assert.Equal(2, game.Settings.BotCount);
+    }
+}

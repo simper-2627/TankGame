@@ -59,12 +59,13 @@ internal static class TestGames
         [new MapSpawnPoint(100, 200, 0), new MapSpawnPoint(400, 200, 180), new MapSpawnPoint(700, 60, 180)]);
 
     public static Game NewGame(MatchSettings? settings = null, FakeClock? clock = null,
-        string matchType = GameMatchTypes.Multiplayer) =>
+        string matchType = GameMatchTypes.Multiplayer, Random? botRandom = null) =>
         new(new FakeHubContext())
         {
             Map = Arena,
             MatchType = matchType,
             SpawnRandom = new FirstSpawnRandom(),
+            BotRandom = botRandom ?? new Random(1),
             Settings = settings ?? new MatchSettings(),
             Clock = (clock ?? new FakeClock()).Now,
         };

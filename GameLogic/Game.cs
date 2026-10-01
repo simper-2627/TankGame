@@ -1,3 +1,4 @@
+using GameLogic.Bots;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 
@@ -9,6 +10,9 @@ public class Game
     internal object StateLock { get; } = new();
     // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
     internal Random SpawnRandom { get; init; } = Random.Shared;
+
+    // Bot aim error, strafing and dodging draw from this; tests swap in a fixed seed
+    internal Random BotRandom { get; init; } = Random.Shared;
     public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     public GameStatus Status { get; private set; } = GameStatus.Playing;
@@ -25,6 +29,9 @@ public class Game
     //public event Action? OnUpdate;
     // Connection id -> the player watching on it (null for a connection that isn't playing); decides who gets private state
     public readonly ConcurrentDictionary<string, Guid?> ConnectedClients = new();
+
+    // Tank id -> the brain steering it
+    private readonly ConcurrentDictionary<Guid, BotBrain> botBrains = new();
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
@@ -213,12 +220,27 @@ public class Game
             Health = spawnPoint is null ? 0 : Settings.Health
         };
         Tanks = Tanks.Append(newTank);
+        if (isBot)
+            botBrains[newTank.Id] = new BotBrain(newTank.Id, BotRandom);
         if (Tanks.Count() == 2)
             StartedAtTick = Tick;
         return newTank.Id;
     }
 
     // Returns true when an instant shot just landed, so the caller can push the explosion to clients right away
+    // Each bot reads the same filtered view a human gets and answers with the same input a human would send.
+    // Caller holds StateLock (the game loop does; ReceiveUserInput takes the same lock again, which is fine)
+    internal void RunBots()
+    {
+        if (Status == GameStatus.Ended || botBrains.IsEmpty)
+            return;
+        foreach (var brain in botBrains.Values)
+        {
+            var view = GetGameState(includeMap: false, viewerId: brain.TankId);
+            ReceiveUserInput(brain.Decide(view, Map));
+        }
+    }
+
     public bool ReceiveUserInput(PlayerInputRequest request)
     {
         lock (StateLock)

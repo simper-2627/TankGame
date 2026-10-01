@@ -52,6 +52,7 @@ public class GameLoopRunner
         if (game.Status != GameStatus.Ended)
         {
             game.Tick++;
+            game.RunBots();
             var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
             game.Tanks = game.Tanks
                 .Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement))
