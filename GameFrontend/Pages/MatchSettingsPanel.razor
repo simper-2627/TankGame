@@ -56,6 +56,18 @@
       }
     </select>
   </label>
+  @if (ShowBotDifficulty)
+  {
+    <label class="form-label d-block">
+      Bot difficulty
+      <select class="form-select" value="@Settings.BotDifficulty" @onchange="SetBotDifficulty">
+        @foreach (var level in Enum.GetValues<BotDifficulty>())
+        {
+          <option value="@level">@level</option>
+        }
+      </select>
+    </label>
+  }
   @if (AllowLockedEdits)
   {
     <label class="form-label d-block">
@@ -108,6 +120,16 @@
 
   [Parameter]
   public bool AllowLockedEdits { get; set; }
+
+  // Only shown when the match has bots
+  [Parameter]
+  public bool ShowBotDifficulty { get; set; }
+
+  private Task SetBotDifficulty(ChangeEventArgs e) =>
+    Changed.InvokeAsync(Settings with
+    {
+      BotDifficulty = Enum.TryParse<BotDifficulty>(e.Value?.ToString(), out var level) ? level : Settings.BotDifficulty
+    });
 
   private Task SetProjectile(ChangeEventArgs e) =>
     Changed.InvokeAsync(Settings with

@@ -1,3 +1,4 @@
+using GameLogic.Bots;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 
@@ -7,13 +8,17 @@ public class Game
 {
     private readonly IHubContext<LobbyHub> hubContext;
     internal object StateLock { get; } = new();
-    // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
     internal Random SpawnRandom { get; init; } = Random.Shared;
+
+    // Bot aim error, strafing and dodging draw from this; tests swap in a fixed seed
+    internal Random BotRandom { get; init; } = Random.Shared;
+    // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
     public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     public GameStatus Status { get; private set; } = GameStatus.Playing;
     // Null while playing, and also when an ended match is a draw
     public Guid? WinnerId { get; private set; }
+    public bool BotsWon { get; private set; }
     // Game loop ticks processed so far (10 per second)
     public int Tick { get; internal set; }
     // Tick when the 2nd player joined; the time limit counts from here
@@ -24,6 +29,9 @@ public class Game
     //public event Action? OnUpdate;
     // Connection id -> the player watching on it (null for a connection that isn't playing); decides who gets private state
     public readonly ConcurrentDictionary<string, Guid?> ConnectedClients = new();
+
+    // Tank id -> the brain steering it
+    private readonly ConcurrentDictionary<Guid, BotBrain> botBrains = new();
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
@@ -32,6 +40,23 @@ public class Game
     public MatchSettings Settings { get => settings; init => settings = MatchSettings.Sanitize(value); }
     // First player to join; only they can change settings during the match
     public Guid? CreatorId { get; private set; }
+
+    private bool botsJoined;
+    private int HumanCount => Tanks.Count(t => !t.IsBot);
+
+    // Bots this match will have: the setting, capped so humans keep their seats (single player needs room for the creator,
+    // multiplayer for two humans). A With bots match always has at least one. Developer simulation adds its bots by hand
+    public int BotSlots
+    {
+        get
+        {
+            if (MatchType == GameMatchTypes.DeveloperSimulation)
+                return 0;
+            var single = MatchType == GameMatchTypes.Bots;
+            var wanted = single ? Math.Max(1, Settings.BotCount) : Settings.BotCount;
+            return Math.Clamp(wanted, 0, Math.Max(0, Map.MaxPlayers - (single ? 1 : 2)));
+        }
+    }
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
     public IEnumerable<Explosion> Explosions { get; internal set; } = [];
@@ -68,6 +93,7 @@ public class Game
             Settings = Settings,
             CreatorId = CreatorId,
             WinnerId = WinnerId,
+            BotsWon = BotsWon,
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
@@ -100,6 +126,10 @@ public class Game
         {
             Id = t.Id,
             Name = t.Name,
+            IsBot = t.IsBot,
+            BotState = MatchType == GameMatchTypes.DeveloperSimulation && botBrains.TryGetValue(t.Id, out var brain)
+                ? brain.State.ToString().ToUpperInvariant()
+                : null,
             InputSequence = t.InputSequence,
             PositionX = t.PositionX,
             PositionY = t.PositionY,
@@ -150,22 +180,54 @@ public class Game
         await Task.WhenAll(sends);
     }
 
+    // Developer simulation only: a bot on demand, so its state label can be watched while tuning
+    public Guid? AddBot()
+    {
+        lock (StateLock)
+        {
+            if (MatchType != GameMatchTypes.DeveloperSimulation || Status == GameStatus.Ended || Tanks.Count() >= Map.MaxPlayers)
+                return null;
+            return AddTank(null, isBot: true);
+        }
+    }
+
     // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
     public Guid JoinGame(string? playerName = null)
     {
         lock (StateLock)
         {
-        if (Status == GameStatus.Ended)
-            throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+            if (Status == GameStatus.Ended)
+                throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+            // A match with bots is the creator's alone; the bots fill the other seats
+            if (MatchType == GameMatchTypes.Bots && HumanCount >= 1)
+                throw new InvalidOperationException($"cannot join game, it is single player: {Name}");
+            if (Tanks.Count() >= Map.MaxPlayers)
+                throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
 
-        if (Tanks.Count() >= Map.MaxPlayers)
-            throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
+            var id = AddTank(playerName, isBot: false);
+            CreatorId ??= id;
+            // Bots arrive with the creator in single player and with the 2nd human in multiplayer; until then nobody
+            // would be fighting them. Their seats come out of the same limit as everyone's, so humans can't take them
+            if (!botsJoined && BotSlots > 0 && HumanCount == (MatchType == GameMatchTypes.Bots ? 1 : 2))
+            {
+                botsJoined = true;
+                for (var i = 0; i < BotSlots; i++)
+                    AddTank(null, isBot: true);
+            }
+            return id;
+        }
+    }
+
+    // Caller holds StateLock. No free spawn point means the tank waits, like a respawn
+    private Guid AddTank(string? playerName, bool isBot)
+    {
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         var newTank = new Tank
         {
             Name = string.IsNullOrWhiteSpace(playerName)
                 ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
                 : playerName.Trim(),
+            IsBot = isBot,
             PositionX = spawnPoint?.X ?? 0,
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,
@@ -173,10 +235,31 @@ public class Game
             Health = spawnPoint is null ? 0 : Settings.Health
         };
         Tanks = Tanks.Append(newTank);
-        CreatorId ??= newTank.Id;
+        if (isBot)
+            botBrains[newTank.Id] = new BotBrain(newTank.Id, BotRandom);
         if (Tanks.Count() == 2)
             StartedAtTick = Tick;
         return newTank.Id;
+    }
+
+    // Each bot reads the same filtered view a human gets and answers with the same input a human would send.
+    // Caller holds StateLock (the game loop does; ReceiveUserInput takes the same lock again, which is fine)
+    internal void RunBots()
+    {
+        if (Status == GameStatus.Ended || botBrains.IsEmpty)
+            return;
+        foreach (var brain in botBrains.Values)
+        {
+            // One bad bot must not stop the other bots or the game loop; it just skips this tick
+            try
+            {
+                var view = GetGameState(includeMap: false, viewerId: brain.TankId);
+                ReceiveUserInput(brain.Decide(view, Map));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Bot {brain.TankId} failed in game {Name}: {ex}");
+            }
         }
     }
 
@@ -308,6 +391,7 @@ public class Game
             return;
         Status = GameStatus.Ended;
         WinnerId = result.WinnerId;
+        BotsWon = result.BotsWon;
     }
 
 }

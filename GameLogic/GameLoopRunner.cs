@@ -52,6 +52,7 @@ public class GameLoopRunner
         if (game.Status != GameStatus.Ended)
         {
             game.Tick++;
+            game.RunBots();
             var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
             game.Tanks = game.Tanks
                 .Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement))
@@ -70,7 +71,8 @@ public class GameLoopRunner
                 game.Bullets = bullets;
             }
             game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);
-            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
+            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft,
+                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin));
         }
         }
 

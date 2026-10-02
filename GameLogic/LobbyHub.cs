@@ -101,6 +101,15 @@ public class LobbyHub : Hub
     await game.BroadcastUpdate();
   }
 
+  public async Task AddBot(string gameName)
+  {
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
+      ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
+    if (game.AddBot() is null)
+      throw new HubException("cannot add a bot to this battle");
+    await game.BroadcastUpdate();
+  }
+
   public override async Task OnDisconnectedAsync(Exception? exception)
   {
     string? connectionId = Context.ConnectionId;

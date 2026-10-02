@@ -29,7 +29,7 @@
 
     protected override void OnParametersSet()
     {
-        color = TankPalette.TankColor(tank.Id);
+        color = TankPalette.TankColor(tank.Id, tank.IsBot);
         hullRotation = ShortestRotation(hullRotation, tank.Angle + spriteFacingOffset);
         turretRotation = ShortestRotation(turretRotation, tank.TurretAngle + spriteFacingOffset);
     }
@@ -70,8 +70,12 @@ else if (tank != null && !tank.Eliminated)
                 <div style=@($"height: 100%; width: {Math.Clamp(health, 0, MaxHealth) * 100 / Math.Max(1, MaxHealth)}%; background: #3c3;")></div>
             </div>
         }
+        @if (tank.BotState is { } botState)
+        {
+            <div style="position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #b00; white-space: nowrap; pointer-events: none;">@botState</div>
+        }
         <div title="@tank.Name" style="position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 10px; line-height: 14px;">
-            @tank.Name@if (tank.Health is int hp && tank.Deaths is int deaths)
+            @(tank.IsBot ? "🤖 " : "")@tank.Name@if (tank.Health is int hp && tank.Deaths is int deaths)
             {
                 <text> · HP @hp/@MaxHealth · @Math.Max(0, MaxLives - deaths) @(MaxLives - deaths == 1 ? "life" : "lives")</text>
             }
