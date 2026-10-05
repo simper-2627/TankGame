@@ -50,7 +50,7 @@
         if (cursorX is double x && cursorY is double y)
             (aimX, aimY) = Camera.ToWorld(x, y);
     }
-    private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", " "];
+    private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"];
     private const double inputCheckInterval = 0.02;
     private PlayerInputRequest? lastSentInput = null;
     private HashSet<string> pressedKeys = new HashSet<string>();
@@ -148,7 +148,7 @@ signalR.HubConnection?.State != HubConnectionState.Connected)
         var left = pressedKeys.Contains("ArrowLeft");
         var right = pressedKeys.Contains("ArrowRight");
         var down = pressedKeys.Contains("ArrowDown");
-        var shoot = pressedKeys.Contains(" ") || mouseHeld || pressPending;
+        var shoot = mouseHeld || pressPending;
         var boost = pressedKeys.Contains("Shift");
 
         var movementMessage = new PlayerInputRequest
