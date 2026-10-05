@@ -22,7 +22,6 @@ jobs:
           docker build -f ./GameApi/dockerfile -t ${{ secrets.docker_username}}/tankgame:${{ github.sha }} .
           docker push ${{ secrets.docker_username }}/tankgame:${{ github.sha }}
 
-          # a change here so I can push something
 
   deploy:
     runs-on: self-hosted
