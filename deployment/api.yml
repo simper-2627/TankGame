@@ -57,15 +57,14 @@ metadata:
   name: tankgame
   namespace: tankgame
   annotations:
+    tailscale.com/funnel: "true"
 spec:
-  rules:
-    - host: tankgame.duckdns.org
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: tankgame
-                port:
-                  number: 80
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: tankgame
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - tankgame
