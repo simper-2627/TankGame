@@ -7,7 +7,6 @@ namespace GameTest;
 public class MapModeTests
 {
     [Theory]
-    [InlineData(MapMode.Standard, 4, 8, 10, 900, 700)]
     [InlineData(MapMode.BigMap, 12, 20, 27, 1800, 1400)]
     [InlineData(MapMode.Foggish, 3, 40, 80, 4500, 2800)]
     public void CatalogMatchesModeAndAllSpawnsAreClear(MapMode mode, int count, int cap, int spawns, int width, int height)
@@ -23,7 +22,6 @@ public class MapModeTests
     }
 
     [Theory]
-    [InlineData(MapMode.Standard)]
     [InlineData(MapMode.BigMap)]
     [InlineData(MapMode.Foggish)]
     public void LobbyEnforcesCapacityEvenWhenPlayersAreWaiting(MapMode mode)

@@ -7,7 +7,7 @@ public record GameMap(
     IReadOnlyList<Obstacle> Obstacles,
     IReadOnlyList<MapSpawnPoint> SpawnPoints)
 {
-    public MapMode Mode { get; init; } = MapMode.Standard;
+    public MapMode Mode { get; init; } = MapMode.BigMap;
     public int MaxPlayers { get; init; } = 8;
     public int ViewWidth { get; init; } = 900;
     public int ViewHeight { get; init; } = 700;

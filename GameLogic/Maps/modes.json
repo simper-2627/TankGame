@@ -1,12 +1,4 @@
 {
-  "Standard": {
-    "width": 900,
-    "height": 700,
-    "viewWidth": 900,
-    "viewHeight": 700,
-    "maxPlayers": 8,
-    "spawnCount": 10
-  },
   "BigMap": {
     "width": 1800,
     "height": 1400,

@@ -99,14 +99,14 @@
         var key = NormalizeKey(e.Key);
         if (movementKeys.Contains(key))
             pressedKeys.Add(key);
-        if (e.Key == "Shift")
+        if (e.Key == "Shift" || e.Key == " ")
             pressedKeys.Add("Shift");
         await SendInputIfDifferent();
     }
     private async Task handleKeyUp(KeyboardEventArgs e)
     {
         pressedKeys.Remove(NormalizeKey(e.Key));
-        if (e.Key == "Shift")
+        if (e.Key == "Shift" || e.Key == " ")
             pressedKeys.Remove("Shift");
         await SendInputIfDifferent();
     }

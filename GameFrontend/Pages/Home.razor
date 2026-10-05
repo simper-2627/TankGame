@@ -427,7 +427,7 @@
           </div>
           <div class="battle-body">
             <h3 class="battle-name" title="@game.Name">@game.Name</h3>
-            <div class="battle-sub">@(game.Map?.Name) &middot; @ModeLabel(game.Map?.Mode ?? MapMode.Standard) &middot; @game.MatchType</div>
+            <div class="battle-sub">@(game.Map?.Name) &middot; @ModeLabel(game.Map?.Mode ?? MapMode.BigMap) &middot; @game.MatchType</div>
             <div class="battle-players" title="@tankCount player@(tankCount == 1 ? "" : "s")">
               @for (var i = 0; i < Math.Min(tankCount, 8); i++)
               {
@@ -497,14 +497,13 @@
   private string userInputGameName = "";
   // Static so it survives leaving a game and coming back to the lobby
   private static string playerName = "";
-  private MapMode selectedMode = MapMode.Standard;
+  private MapMode selectedMode = MapMode.BigMap;
   private string? joinError;
   private static string ModeLabel(MapMode mode) => mode == MapMode.BigMap ? "Big Map" : mode.ToString();
   private string ModeDescription => selectedMode switch
   {
     MapMode.BigMap => "A larger battlefield viewed in full. Up to 20 players.",
-    MapMode.Foggish => "Explore a vast battlefield with a camera that follows your tank. Up to 40 players.",
-    _ => "Classic compact battlefields. Up to 8 players."
+    _ => "Explore a vast battlefield with a camera that follows your tank. Up to 40 players."
   };
   private void SelectMode(MapMode mode)
   {
