@@ -19,7 +19,7 @@ jobs:
           password: ${{ secrets.docker_password }}
       - name: Building
         run: |
-          which docker git kubectl
+          which docker git kubectl envsubst
           docker build -f ./GameApi/dockerfile -t ${{ secrets.docker_username}}/tankgame:${{ github.sha }} .
           docker push ${{ secrets.docker_username }}/tankgame:${{ github.sha }}
 
