@@ -33,3 +33,5 @@ jobs:
       - name: Deploy on k8s
         run: |
           cat deployment/api.yml | envsubst | kubectl apply -f -
+
+            # make it run again!!!
