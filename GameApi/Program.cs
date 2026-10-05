@@ -5,7 +5,11 @@ builder.Services.AddSingleton<Lobby>();
 builder.Services.AddSignalR();
 
 var app = builder.Build();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+  ServeUnknownFileTypes = true,
+  DefaultContentType = "application/octet-stream"
+});
 
 app.MapHub<LobbyHub>("/api/gameHub");
 app.MapFallbackToFile("index.html");
