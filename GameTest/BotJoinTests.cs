@@ -127,22 +127,10 @@ public class BotJoinTests
     }
 
     [Fact]
-    public void ABotMatchOnAMapOtherThanStandardIsRefused()
+    public void ABotMatchIsCreatedAsABotMatch()
     {
         var lobby = new Lobby(new FakeHubContext());
-        var bigMap = MapCatalog.FixedMaps.First(m => m.Mode == MapMode.BigMap).Name;
-
-        Assert.Throws<InvalidOperationException>(() =>
-            lobby.CreateGame("big", bigMap, GameMatchTypes.Bots, new MatchSettings { BotCount = 1 }));
-
-        Assert.Empty(lobby.Games);
-    }
-
-    [Fact]
-    public void ABotMatchOnAStandardMapIsCreatedAsABotMatch()
-    {
-        var lobby = new Lobby(new FakeHubContext());
-        var standardMap = MapCatalog.FixedMaps.First(m => m.Mode == MapMode.Standard).Name;
+        var standardMap = MapCatalog.FixedMaps.First(m => m.Mode == MapMode.BigMap).Name;
 
         var game = lobby.CreateGame("solo", standardMap, GameMatchTypes.Bots, new MatchSettings { BotCount = 2 });
 
@@ -151,10 +139,9 @@ public class BotJoinTests
     }
 
     [Theory]
-    [InlineData(MapMode.BigMap, 0)]
-    [InlineData(MapMode.Foggish, 0)]
-    [InlineData(MapMode.Standard, 3)]
-    public void MultiplayerKeepsItsBotsOnStandardMapsOnly(MapMode mode, int expectedBots)
+    [InlineData(MapMode.Foggish, 3)]
+    [InlineData(MapMode.BigMap, 3)]
+    public void MultiplayerKeepsItsBotsOnEveryMap(MapMode mode, int expectedBots)
     {
         var lobby = new Lobby(new FakeHubContext());
         var map = MapCatalog.FixedMaps.First(m => m.Mode == mode).Name;

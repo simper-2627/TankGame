@@ -145,15 +145,11 @@
               <p>Walls block tanks and bullets. Green markers are spawn points.</p>
             </div>
             <div class="d-flex gap-2 mb-3" role="group" aria-label="Map mode">
-              @foreach (var mode in Enum.GetValues<MapMode>().Where(m => selectedMatchType != GameMatchTypes.Bots || m == MapMode.Standard))
+              @foreach (var mode in Enum.GetValues<MapMode>())
               {
                 <button type="button" class="btn-game @(selectedMode == mode ? "primary" : "")" @onclick="() => SelectMode(mode)">@ModeLabel(mode)</button>
               }
             </div>
-            @if (selectedMatchType == GameMatchTypes.Bots)
-            {
-              <p class="small text-muted">Bots only fight on Standard maps for now.</p>
-            }
             <p>@ModeDescription</p>
             <div class="map-grid">
               @foreach (var map in MapCatalog.FixedMaps.Where(m => m.Mode == selectedMode))
@@ -277,7 +273,7 @@
                 </div>
               </div>
             </div>
-            @if (selectedMatchType != GameMatchTypes.DeveloperSimulation && selectedMode == MapMode.Standard)
+            @if (selectedMatchType != GameMatchTypes.DeveloperSimulation)
             {
               <div class="field-row">
                 <div class="field">
@@ -508,12 +504,6 @@
   private void SelectMode(MapMode mode)
   {
     selectedMode = mode;
-    // Bots only play on Standard maps for now
-    if (mode != MapMode.Standard)
-    {
-      botCount = 0;
-      clearBotsToWin = false;
-    }
     selectedMapName = MapCatalog.FixedMaps.First(m => m.Mode == mode).Name;
   }
   private string selectedMapName = MapCatalog.DefaultMap.Name;
@@ -529,9 +519,6 @@
   {
     var fromBots = selectedMatchType == GameMatchTypes.Bots;
     selectedMatchType = matchType;
-    // Bots only play on Standard maps for now
-    if (matchType == GameMatchTypes.Bots && selectedMode != MapMode.Standard)
-      SelectMode(MapMode.Standard);
     // Multiplayer starts without bots, not with the one With bots needed
     if (fromBots && matchType == GameMatchTypes.Multiplayer)
       botCount = 0;
@@ -669,9 +656,9 @@
       RespawnSeconds = respawnSeconds,
       SpeedMultiplier = speedMultiplier,
       TimeLimitMinutes = timeLimitMinutes,
-      BotCount = selectedMatchType == GameMatchTypes.DeveloperSimulation || selectedMode != MapMode.Standard ? 0 : botCount,
+      BotCount = selectedMatchType == GameMatchTypes.DeveloperSimulation ? 0 : botCount,
       BotDifficulty = botDifficulty,
-      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && selectedMode == MapMode.Standard && clearBotsToWin
+      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && clearBotsToWin
     };
     try
     {

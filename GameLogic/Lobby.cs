@@ -25,14 +25,8 @@ public class Lobby
       _ => GameMatchTypes.Multiplayer
     };
     var map = mapSource.GetByName(mapName);
-    // Bots can't find their way around the bigger maps yet
-    if (type == GameMatchTypes.Bots && map.Mode != MapMode.Standard)
-      throw new InvalidOperationException($"bot matches only support Standard maps: {map.Name}");
 
     var chosen = MatchSettings.Sanitize(settings ?? new MatchSettings());
-    // Bots in Multiplayer are Standard-map only for now
-    if (type == GameMatchTypes.Multiplayer && map.Mode != MapMode.Standard)
-      chosen = chosen with { BotCount = 0, ClearBotsToWin = false };
 
     var newGame = new Game(context)
     {

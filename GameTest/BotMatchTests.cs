@@ -9,7 +9,7 @@ namespace GameTest;
 public class BotMatchTests(ITestOutputHelper output)
 {
     public static IEnumerable<object[]> StandardMaps() =>
-        MapCatalog.FixedMaps.Where(map => map.Mode == MapMode.Standard).Select(map => new object[] { map.Name });
+        MapCatalog.FixedMaps.Where(map => map.Mode == MapMode.BigMap).Select(map => new object[] { map.Name });
 
     // Catches a bot that gets stuck on a wall for good, or never manages to shoot
     [Theory]
@@ -52,7 +52,7 @@ public class BotMatchTests(ITestOutputHelper output)
         var clock = new FakeClock();
         var game = new Game(new FakeHubContext())
         {
-            Map = MapCatalog.FixedMaps.First(map => map.Mode == MapMode.Standard),
+            Map = MapCatalog.FixedMaps.First(map => map.Mode == MapMode.BigMap),
             MatchType = GameMatchTypes.Bots,
             Settings = new MatchSettings { BotCount = 7, BotDifficulty = BotDifficulty.Hard, Health = 10, Lives = 10 },
             Clock = clock.Now,

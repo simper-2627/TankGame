@@ -34,7 +34,7 @@ public record MatchSettings
     public const int MinLives = 1;
     public const int MaxLives = 10;
     public const int MaxRespawnSeconds = 15;
-    // A Standard map seats 8, and a bot match needs at least one human
+    // A bot match needs at least one human
     public const int MaxBots = 7;
     public static readonly double[] SpeedChoices = [0.5, 0.75, 1, 1.25, 1.5, 2];
     // 0 = no time limit
