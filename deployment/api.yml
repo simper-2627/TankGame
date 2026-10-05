@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tankgame
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tankgame
+  namespace: tankgame
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tankgame
+  template:
+    metadata:
+      labels:
+        app: tankgame
+    spec:
+      containers:
+        - name: api
+          image: dharryc/tankgame:$GITHUB_SHA
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 512Mi
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tankgame
+  namespace: tankgame
+spec:
+  selector:
+    app: tankgame
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tankgame
+  namespace: tankgame
+  annotations:
+spec:
+  rules:
+    - host: tankgame.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tankgame
+                port:
+                  number: 80

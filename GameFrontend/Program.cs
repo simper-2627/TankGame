@@ -6,7 +6,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddSingleton<SignalRService>();
+var hubUrl = builder.HostEnvironment.IsDevelopment()
+    ? "http://localhost:5135/api/gameHub"
+    : new Uri(new Uri(builder.HostEnvironment.BaseAddress), "api/gameHub").ToString();
+builder.Services.AddSingleton(new SignalRService(hubUrl));
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
 var host = builder.Build();

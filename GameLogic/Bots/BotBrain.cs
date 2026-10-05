@@ -236,6 +236,7 @@ public sealed class BotBrain
         Left = move.Left,
         Right = move.Right,
         Shoot = shoot,
+        Boost = false,
         AimX = aim?.X,
         AimY = aim?.Y,
     };
