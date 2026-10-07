@@ -10,6 +10,10 @@ metadata:
   namespace: $NAMESPACE
 spec:
   replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: tankgame
@@ -18,9 +22,14 @@ spec:
       labels:
         app: tankgame
     spec:
+      terminationGracePeriodSeconds: 630
       containers:
         - name: api
           image: dharryc/tankgame:$GITHUB_SHA
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "600"]
           ports:
             - containerPort: 8080
           readinessProbe:
