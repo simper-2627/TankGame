@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-
+# added .net 10 to runner env
 jobs:
   build:
     runs-on: self-hosted
