@@ -22,9 +22,21 @@ spec:
       labels:
         app: tankgame
     spec:
+      volumes:
+        - name: versions
+          configMap:
+            name: tankgame-versions
+            optional: true
       containers:
         - name: api
           image: dharryc/tankgame:$GITHUB_SHA
+          env:
+            - name: NAMESPACE
+              value: $NAMESPACE
+          volumeMounts:
+            - name: versions
+              mountPath: /etc/tankgame/versions
+              readOnly: true
           ports:
             - containerPort: 8080
           readinessProbe:

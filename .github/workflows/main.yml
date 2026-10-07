@@ -55,6 +55,8 @@ jobs:
       NAMESPACE: tankgame
     steps:
       - uses: actions/checkout@v5
+      - name: Ensure version picker registry
+        run: sh deployment/versions.sh ensure
       - name: Deploy on k8s
         run: |
           cat deployment/api.yml | envsubst | kubectl apply -f -
