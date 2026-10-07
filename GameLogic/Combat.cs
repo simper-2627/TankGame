@@ -34,18 +34,25 @@ public static class Combat
         return (tankList.ToArray(), flying.ToArray());
     }
 
-    // One hit: 1 health off the target, credited to the shooter
+    // One hit: 1 health off the target, credited to the shooter (plus a kill if it was the killing blow)
     public static void ApplyHit(List<Tank> tankList, int targetIndex, Guid shooterId, MatchSettings match)
     {
-        var target = tankList[targetIndex];
+        var target = tankList[targetIndex] with { HitsTaken = tankList[targetIndex].HitsTaken + 1 };
         var health = Math.Max(0, target.Health - 1);
         tankList[targetIndex] = health > 0 ? target with { Health = health, HitFlashTicks = Tank.HitFlashTicksOnHit } : Destroy(target, match);
 
-        // Shooting yourself with a bounce doesn't count as a hit landed
+        // Shooting yourself with a bounce doesn't count as a hit landed (or a kill)
         var shooterIndex = tankList.FindIndex(tank => tank.Id == shooterId);
         if (shooterIndex >= 0 && shooterId != target.Id)
-            tankList[shooterIndex] = tankList[shooterIndex] with { HitsLanded = tankList[shooterIndex].HitsLanded + 1 };
+        {
+            var shooter = tankList[shooterIndex];
+            tankList[shooterIndex] = shooter with { HitsLanded = shooter.HitsLanded + 1, Kills = shooter.Kills + (health == 0 ? 1 : 0) };
+        }
     }
+
+    // Stamps the tick on tanks that just lost their last life, so the end screen can rank them by how long they lasted
+    public static Tank[] MarkEliminations(IEnumerable<Tank> tanks, int tick) =>
+        tanks.Select(tank => tank.Eliminated && tank.EliminatedAtTick is null ? tank with { EliminatedAtTick = tick } : tank).ToArray();
 
     // Instant shot: walk from the muzzle along the turret until something solid is met.
     // Steps are smaller than any tank or wall, so nothing can be skipped

@@ -1,0 +1,30 @@
+.results-modal {
+    width: min(760px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    padding: 24px;
+    border: 1px solid #718268;
+    border-radius: 16px;
+    background: #f8fafc;
+    color: #17221b;
+    box-shadow: 0 20px 80px #0008;
+    overflow-y: auto;
+}
+
+.results-modal::backdrop { background: #071009b3; }
+
+.results-header { margin-bottom: 16px; text-align: center; }
+.results-header h2 { margin: 0 0 4px; font-size: 1.8rem; }
+.results-header p { margin: 0; color: #4b5b50; font-size: .9rem; }
+
+.results-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.stat { display: flex; flex-direction: column; align-items: center; padding: 10px 8px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; }
+.stat-value { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: .75rem; color: #4b5b50; text-align: center; }
+
+.results-table { margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+.results-table tr.is-you td { background: #fff4c7; font-weight: 600; }
+.tank-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border: 1px solid #0006; border-radius: 50%; vertical-align: baseline; }
+
+.results-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+
+.results-reopen { position: absolute; bottom: 20px; left: 50%; z-index: 2; transform: translateX(-50%); box-shadow: 0 6px 24px #0008; }

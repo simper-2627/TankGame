@@ -28,12 +28,7 @@
       </div>
       @if (game.Status == GameStatus.Ended)
       {
-        <div class="alert alert-info py-2 mb-2">
-          @(game.BotsWon ? "The bots won!"
-            : game.WinnerId is null ? "Draw!"
-            : game.WinnerId == PlayerId ? "You win!"
-            : $"{game.WinnerId.Value.ToString()[^5..]} wins")
-        </div>
+        <div class="alert alert-info py-2 mb-2">@MatchResults.Headline(game, PlayerId)</div>
       }
       @if (WatchingOther)
       {
@@ -181,6 +176,7 @@
     }
       </div>
     </dialog>
+    <MatchResults Game="game" PlayerId="PlayerId" />
   </div>
 }
 

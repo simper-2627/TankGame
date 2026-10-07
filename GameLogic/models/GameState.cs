@@ -19,6 +19,8 @@ public record GameState
     public bool BotsWon { get; init; }
     // Null when there's no time limit or it hasn't started
     public int? SecondsLeft { get; init; }
+    // Time played since the 2nd player joined, frozen when the match ends; null before that
+    public int? MatchSeconds { get; init; }
     public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }
@@ -74,6 +76,14 @@ public record TankState
     // Private: ms until the tank can fire again (0 = ready); null for everyone but the owner
     public int? ReloadMsLeft { get; init; }
     public int HitsLanded { get; init; }
+    // End-of-match stats. Private like Health: only the owner sees them until the match ends
+    public int? Kills { get; init; }
+    public int? ShotsFired { get; init; }
+    public int? HitsTaken { get; init; }
+    // From match start until the tank was eliminated (or the match ended)
+    public int? SecondsSurvived { get; init; }
+    // Final standing, 1 = first; null until the match ends
+    public int? Placement { get; init; }
     // Destroyed with lives left, waiting to come back
     public bool Respawning => Health <= 0 && !Eliminated;
 }

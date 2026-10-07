@@ -67,7 +67,7 @@ public class GameLoopRunner
             if (game.StartedAtTick is not null)
             {
                 var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings, game.Settings);
-                game.Tanks = tanks;
+                game.Tanks = Combat.MarkEliminations(tanks, game.Tick);
                 game.Bullets = bullets;
             }
             game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);

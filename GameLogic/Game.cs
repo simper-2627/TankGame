@@ -23,7 +23,13 @@ public class Game
     public int Tick { get; internal set; }
     // Tick when the 2nd player joined; the time limit counts from here
     public int? StartedAtTick { get; private set; }
-    public int? TicksLeft => Settings.TimeLimitMinutes == 0 || StartedAtTick is null
+    public int? EndedAtTick { get; private set; }
+    // Tank id -> final standing (1 = first); empty until the match ends
+    private IReadOnlyDictionary<Guid, int> placements = new Dictionary<Guid, int>();
+    // Match time played so far (frozen once it ends); null until the 2nd player joins
+    public int? MatchSeconds => StartedAtTick is int start ? SecondsBetween(start, EndedAtTick ?? Tick) : null;
+    private static int SecondsBetween(int fromTick, int toTick) => Math.Max(0, toTick - fromTick) / GameLoopRunner.TicksPerSecond;
+    public int? TicksLeft =>Settings.TimeLimitMinutes == 0 || StartedAtTick is null
         ? null
         : StartedAtTick.Value + Settings.TimeLimitMinutes * 60 * GameLoopRunner.TicksPerSecond - Tick;
     //public event Action? OnUpdate;
@@ -97,6 +103,7 @@ public class Game
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
+            MatchSeconds = MatchSeconds,
             Map = includeMap ? Map : null,
             Tanks = tanks,
             Explosions = Explosions.Select(e => new ExplosionState()
@@ -145,6 +152,13 @@ public class Game
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
+            Kills = revealed ? t.Kills : null,
+            ShotsFired = revealed ? t.ShotsFired : null,
+            HitsTaken = revealed ? t.HitsTaken : null,
+            SecondsSurvived = revealed && StartedAtTick is int start
+                ? SecondsBetween(start, t.EliminatedAtTick ?? EndedAtTick ?? Tick)
+                : null,
+            Placement = placements.TryGetValue(t.Id, out var place) ? place : null,
         };
     }
 
@@ -300,7 +314,12 @@ public class Game
                         instantShooter = updatedTank;
                     else
                         Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
-                    updatedTank = updatedTank with { NextShotAtMs = now + Settings.ReloadMs };
+                    // Practice shots before the 2nd player joins don't count against accuracy
+                    updatedTank = updatedTank with
+                    {
+                        NextShotAtMs = now + Settings.ReloadMs,
+                        ShotsFired = t.ShotsFired + (StartedAtTick is null ? 0 : 1),
+                    };
                 }
 
                 //if (updatedTank.Bullet != null)
@@ -330,7 +349,7 @@ public class Game
         if (shot.HitIndex is int hitIndex && StartedAtTick is not null)
         {
             Combat.ApplyHit(tanks, hitIndex, shooter.Id, Settings);
-            Tanks = tanks;
+            Tanks = Combat.MarkEliminations(tanks, Tick);
         }
         var (centerX, centerY) = Tank.GetCenter(shooter, DeveloperSettings);
         var radians = Math.PI * shooter.TurretAngle / 180.0;
@@ -390,8 +409,13 @@ public class Game
         if (!result.Ended)
             return;
         Status = GameStatus.Ended;
+        EndedAtTick = Tick;
         WinnerId = result.WinnerId;
         BotsWon = result.BotsWon;
+        // Nothing moves after the end, so the standings are worked out once
+        placements = MatchSummary.Rank(Tanks, WinnerId)
+            .Select((tank, index) => (tank.Id, Place: index + 1))
+            .ToDictionary(entry => entry.Id, entry => entry.Place);
     }
 
 }

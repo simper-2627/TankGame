@@ -1,0 +1,125 @@
+@using GameLogic
+@using GameLogic.Game
+@inject IJSRuntime JS
+@implements IDisposable
+
+@* End screen: pops up shortly after the match ends, once the server has revealed everyone's stats *@
+@if (Game.Status == GameStatus.Ended)
+{
+  <dialog class="results-modal" @ref="dialog" @onclose="() => open = false" aria-labelledby="results-title">
+    <header class="results-header">
+      <h2 id="results-title">@Headline(Game, PlayerId)</h2>
+      <p>
+        @(Game.Map?.Name ?? "Unknown map") &middot; @Game.MatchType
+        @if (Game.MatchSeconds is int seconds)
+        {
+          <text> &middot; @Clock(seconds)</text>
+        }
+      </p>
+    </header>
+
+    @if (LocalTank is { } me)
+    {
+      <section class="results-stats" aria-label="Your performance">
+        <div class="stat"><span class="stat-value">@Place(me)</span><span class="stat-label">Placement</span></div>
+        <div class="stat"><span class="stat-value">@(me.Kills ?? 0)</span><span class="stat-label">Kills</span></div>
+        <div class="stat"><span class="stat-value">@Accuracy(me)</span><span class="stat-label">Accuracy (@me.HitsLanded/@(me.ShotsFired ?? 0) hits)</span></div>
+        <div class="stat"><span class="stat-value">@(me.HitsTaken ?? 0)</span><span class="stat-label">Damage taken</span></div>
+        <div class="stat"><span class="stat-value">@(me.Deaths ?? 0)/@Game.Settings.Lives</span><span class="stat-label">Lives lost</span></div>
+        <div class="stat"><span class="stat-value">@(me.SecondsSurvived is int survived ? Clock(survived) : "—")</span><span class="stat-label">Survived</span></div>
+      </section>
+    }
+
+    <div class="table-responsive">
+      <table class="table table-sm results-table">
+        <thead>
+          <tr><th>#</th><th>Tank</th><th>Kills</th><th>Hits</th><th>Accuracy</th><th>Deaths</th><th>Survived</th></tr>
+        </thead>
+        <tbody>
+          @foreach (var tank in Standings)
+          {
+            <tr class="@(tank.Id == PlayerId ? "is-you" : null)">
+              <td>@tank.Placement</td>
+              <td>
+                <span class="tank-swatch" style="background: @TankPalette.TankColor(tank.Id, tank.IsBot)" aria-hidden="true"></span>
+                @(tank.IsBot ? "🤖 " : "")@tank.Name@(tank.Id == PlayerId ? " (you)" : "")
+              </td>
+              <td>@tank.Kills</td>
+              <td>@tank.HitsLanded</td>
+              <td>@Accuracy(tank)</td>
+              <td>@tank.Deaths</td>
+              <td>@(tank.SecondsSurvived is int survived ? Clock(survived) : "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="results-actions">
+      <button type="button" class="btn btn-outline-secondary" @onclick="Close">View battlefield</button>
+      <a href="/" class="btn btn-primary">Back to home</a>
+    </footer>
+  </dialog>
+
+  @if (revealed && !open)
+  {
+    <button type="button" class="results-reopen btn btn-primary" @onclick="Open">Show results</button>
+  }
+}
+
+@code {
+  // Long enough for the final explosion to play before the board is covered
+  private const int RevealDelayMs = 1500;
+
+  [Parameter, EditorRequired] public GameState Game { get; set; } = default!;
+  [Parameter] public Guid PlayerId { get; set; }
+
+  private ElementReference dialog;
+  private bool open;
+  private bool revealed;
+  private bool revealScheduled;
+  private readonly CancellationTokenSource disposed = new();
+
+  private TankState? LocalTank => Game.Tanks?.FirstOrDefault(t => t.Id == PlayerId);
+  private IEnumerable<TankState> Standings => (Game.Tanks ?? []).OrderBy(t => t.Placement ?? int.MaxValue);
+
+  protected override void OnParametersSet()
+  {
+    if (Game.Status != GameStatus.Ended || revealScheduled) return;
+    revealScheduled = true;
+    _ = RevealAfterDelay();
+  }
+
+  private async Task RevealAfterDelay()
+  {
+    try { await Task.Delay(RevealDelayMs, disposed.Token); }
+    catch (TaskCanceledException) { return; }
+    await InvokeAsync(Open);
+  }
+
+  private async Task Open()
+  {
+    if (open || disposed.IsCancellationRequested) return;
+    open = revealed = true;
+    await JS.InvokeVoidAsync("tankViewport.openSettings", dialog);
+  }
+
+  private Task Close() => JS.InvokeVoidAsync("tankViewport.closeSettings", dialog).AsTask();
+
+  public void Dispose() => disposed.Cancel();
+
+  // The one-line result, shared with the in-game HUD
+  public static string Headline(GameState game, Guid playerId) =>
+    game.BotsWon ? "The bots won!"
+    : game.WinnerId is not { } winnerId ? "Draw!"
+    : winnerId == playerId ? "Victory!"
+    : $"{game.Tanks?.FirstOrDefault(t => t.Id == winnerId)?.Name ?? "Another tank"} wins";
+
+  private string Place(TankState tank) => tank.Placement is int place ? $"#{place} of {Game.Tanks?.Count() ?? 0}" : "—";
+
+  // Capped: a practice bullet fired before the match started can still land after it
+  private static string Accuracy(TankState tank) =>
+    tank.ShotsFired is int shots and > 0 ? $"{Math.Min(100, 100.0 * tank.HitsLanded / shots):0}%" : "—";
+
+  private static string Clock(int seconds) => $"{seconds / 60}:{seconds % 60:00}";
+}

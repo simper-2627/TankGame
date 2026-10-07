@@ -45,6 +45,12 @@ public record Tank
     public bool Respawning => Health <= 0 && !Eliminated;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
+    // End-of-match stats. Kills are killing blows on other tanks; shots only count once the match has started
+    public int Kills { get; init; }
+    public int ShotsFired { get; init; }
+    public int HitsTaken { get; init; }
+    // Game tick of the last life lost; null while still in the match
+    public int? EliminatedAtTick { get; init; }
     // Game clock time (ms) at which the tank may fire again; 0 = ready
     public long NextShotAtMs { get; init; }
     //public Bullet Bullet { get; set; } = new();
