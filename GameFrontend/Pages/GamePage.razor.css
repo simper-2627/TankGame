@@ -1,0 +1,60 @@
+.game-screen {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #171e14;
+}
+
+.game-hud {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 88px);
+    z-index: 1;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #111b16d9;
+    color: #fff;
+    font-size: .85rem;
+    pointer-events: none;
+}
+
+.settings-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid #718268;
+    border-radius: 12px;
+    background: #111b16e6;
+    color: white;
+}
+
+.settings-toggle:hover { background: #34452c; }
+.settings-toggle:focus-visible { outline: 3px solid #ffd35a; }
+
+.settings-modal {
+    width: min(740px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    padding: 24px;
+    border: 1px solid #718268;
+    border-radius: 16px;
+    background: #f8fafc;
+    color: #17221b;
+    box-shadow: 0 20px 80px #0008;
+    overflow-y: auto;
+}
+
+.settings-modal::backdrop { background: #071009b3; }
+.settings-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
+.settings-header h2 { margin: 0; font-size: 1.4rem; }
+.settings-panels { display: flex; flex-wrap: wrap; gap: 20px; }
+.developer-settings, .settings-panels ::deep aside { flex: 1 1 260px; width: auto !important; min-width: 0; padding: 12px; border: 1px solid #cbd5e1; }
+
+/* Private respawn preview, drawn only for the waiting player */
+.spawn-marker { position: absolute; box-sizing: border-box; border: 2px dashed #3fb950; border-radius: 6px; background: #3fb95022; pointer-events: none; animation: spawn-marker-pulse 1s ease-in-out infinite; }
+@keyframes spawn-marker-pulse { 50% { opacity: .35; } }

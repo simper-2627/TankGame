@@ -1,0 +1,40 @@
+.reload-ring {
+    position: absolute;
+    /* Upright gauge up and to the right of the turret head. The head is ~12px in radius around the pivot (30,30 in the 60px tank box)
+       and the ring's outer edge is ~8.8px from its center, so centering it ~22.3px out on the diagonal (45.8, 14.2)
+       leaves a ~1.5px gap between the ring's bottom-left and the head's top-right */
+    left: 36.8px;
+    top: 5.2px;
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+    overflow: visible;
+    /* Hold full until the fill ends, then fade out and stay gone until the next shot */
+    animation: ring-fade 350ms ease-out var(--ms) forwards;
+}
+
+.ring-track,
+.ring-fill {
+    fill: none;
+    stroke-width: 10;
+}
+
+.ring-track { stroke: #ffffff4d; }
+
+.ring-fill {
+    stroke: #fff;
+    filter: drop-shadow(0 0 1px #000a);
+    stroke-dasharray: var(--len);
+    stroke-dashoffset: var(--from);
+    animation: ring-fill var(--ms) linear forwards;
+}
+
+@keyframes ring-fill {
+    from { stroke-dashoffset: var(--from); }
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes ring-fade {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}

@@ -6,45 +6,38 @@
 @implements IHandleEvent
 @inject Microsoft.JSInterop.IJSRuntime JS
 
-<div>
-    Drive with WASD or the arrow keys, aim with the mouse, and click to fire
-</div>
-<div tabindex="0" @ref="board"
-class="m-1 game-board"
-style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden; outline: 3px solid #343a40; background: #d8d2b5;")
-@onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
-@onmousemove="handleMouseMove" @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp"
->
+<div tabindex="0" @ref="board" class="game-board"
+     style="position: absolute; inset: 0; overflow: hidden; outline: none; background: #171e14;"
+     @onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur" @onmousemove="handleMouseMove"
+     @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp">
     <div style="@WorldStyle">
         @ChildContent
     </div>
 </div>
 <style>
     /* Double-clicking a tank (to shoot) must not select its label or drag its image */
-    .game-board, .game-board * {
+    .game-board,
+    .game-board * {
         user-select: none;
         -webkit-user-select: none;
     }
+
     .game-board img {
         -webkit-user-drag: none;
-    }
-    .game-board:focus {
-    border-color: blue !important;
-    background-color: rgb(240, 240, 240);
     }
 </style>
 
 @code {
     [Parameter]
-    public RenderFragment ChildContent { get; set; }
+    public RenderFragment? ChildContent { get; set; }
     [Parameter]
-    public string GameName { get; set; }
+    public string GameName { get; set; } = string.Empty;
     [Parameter]
     public Guid PlayerId { get; set; }
-    [Parameter]
-    public int BoardWidth { get; set; } = 750;
-    [Parameter]
-    public int BoardHeight { get; set; } = 750;
+    [Parameter] public EventCallback<(double Width, double Height)> ViewportChanged { get; set; }
+    private DotNetObjectReference<PlayerControls>? viewportReference;
+    [JSInvokable]
+    public Task ResizeViewport(double width, double height) => ViewportChanged.InvokeAsync((width, height));
     [Parameter] public MapCamera Camera { get; set; } = new(1, 0, 0);
     private string WorldStyle => FormattableString.Invariant($"position:absolute;left:0;top:0;transform-origin:0 0;transform:scale({Camera.Scale}) translate({-Camera.X}px,{-Camera.Y}px);pointer-events:none;transition:transform 100ms linear;will-change:transform;");
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem callback, object? arg) => callback.InvokeAsync(arg);
@@ -57,7 +50,7 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         if (cursorX is double x && cursorY is double y)
             (aimX, aimY) = Camera.ToWorld(x, y);
     }
-    private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", " "];
+    private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"];
     private const double inputCheckInterval = 0.02;
     private PlayerInputRequest? lastSentInput = null;
     private HashSet<string> pressedKeys = new HashSet<string>();
@@ -76,6 +69,8 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         {
             await board.FocusAsync();
             await JS.InvokeVoidAsync("tankPerf.attach", board);
+            viewportReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("tankViewport.attach", board, viewportReference);
         }
         await JS.InvokeVoidAsync("tankPerf.count", "boardRenders");
     }
@@ -104,11 +99,15 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         var key = NormalizeKey(e.Key);
         if (movementKeys.Contains(key))
             pressedKeys.Add(key);
+        if (e.Key == "Shift" || e.Key == " ")
+            pressedKeys.Add("Shift");
         await SendInputIfDifferent();
     }
     private async Task handleKeyUp(KeyboardEventArgs e)
     {
         pressedKeys.Remove(NormalizeKey(e.Key));
+        if (e.Key == "Shift" || e.Key == " ")
+            pressedKeys.Remove("Shift");
         await SendInputIfDifferent();
     }
     private void handleMouseMove(MouseEventArgs e)
@@ -136,48 +135,54 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     {
         pressedKeys = new HashSet<string>();
         mouseHeld = false;
+        pressPending = false;
         await SendInputIfDifferent();
     }
     private async Task SendInputIfDifferent()
     {
-        if (sending || inputCancellation.IsCancellationRequested || PlayerId == Guid.Empty || string.IsNullOrEmpty(GameName) || signalR.HubConnection?.State != HubConnectionState.Connected)
+        if (sending || inputCancellation.IsCancellationRequested || PlayerId == Guid.Empty || string.IsNullOrEmpty(GameName) ||
+signalR.HubConnection?.State != HubConnectionState.Connected)
             return;
 
         var up = pressedKeys.Contains("ArrowUp");
         var left = pressedKeys.Contains("ArrowLeft");
         var right = pressedKeys.Contains("ArrowRight");
         var down = pressedKeys.Contains("ArrowDown");
-        var shoot = pressedKeys.Contains(" ") || mouseHeld || pressPending;
+        var shoot = mouseHeld || pressPending;
+        var boost = pressedKeys.Contains("Shift");
 
         var movementMessage = new PlayerInputRequest
-      {
-        GameName = GameName,
-        PlayerId = (Guid)PlayerId,
-        Up = up,
-        Left = left,
-        Right = right,
-        Shoot = shoot,
-        Down = down,
-        AimX = aimX,
-        AimY = aimY,
-       };
+        {
+            GameName = GameName,
+            PlayerId = (Guid)PlayerId,
+            Up = up,
+            Left = left,
+            Right = right,
+            Shoot = shoot,
+            Boost = boost,
+            Down = down,
+            AimX = aimX,
+            AimY = aimY,
+        };
 
-    // The press is now part of the shooting state, whether or not this message differs
-    if (shoot)
-      pressPending = false;
-    if (movementMessage != lastSentInput)
-    {
-      lastSentInput = movementMessage;
-      movementMessage = movementMessage with { InputSequence = ++inputSequence };
-      ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.sent", inputSequence);
-      sending = true;
-      try { await signalR.HubConnection!.SendAsync(Messages.PlayerInput, movementMessage); }
-      catch (Exception) { lastSentInput = null; }
-      finally { sending = false; }
+        // The press is now part of the shooting state, whether or not this message differs
+        if (shoot)
+            pressPending = false;
+        if (movementMessage != lastSentInput)
+        {
+            lastSentInput = movementMessage;
+            movementMessage = movementMessage with { InputSequence = ++inputSequence };
+            ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.sent", inputSequence);
+            sending = true;
+            try { await signalR.HubConnection!.SendAsync(Messages.PlayerInput, movementMessage); }
+            catch (Exception) { lastSentInput = null; }
+            finally { sending = false; }
+        }
     }
-  }
-  public void Dispose()
-  {
-    inputCancellation.Cancel();
-  }
+    public void Dispose()
+    {
+        ((IJSInProcessRuntime)JS).InvokeVoid("tankViewport.detach", board);
+        viewportReference?.Dispose();
+        inputCancellation.Cancel();
+    }
 }

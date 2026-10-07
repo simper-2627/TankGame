@@ -4,7 +4,7 @@ namespace GameLogic
 {
     internal class ReplaySaver
     {
-        IEnumerable<Tank> lastTankState;
+        IEnumerable<Tank>? lastTankState;
         private object fileLock { get; } = new object();
 
 

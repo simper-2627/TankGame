@@ -1,12 +1,25 @@
-﻿@using GameLogic
+@using GameLogic
 
 @foreach (var bullet in Bullets)
         {
             if (bullet is null) continue;
-            <div @key="bullet.Id" style=@($@"{transitionConst}; position: absolute; top: {bullet.PositionY}px; left: {bullet.PositionX}px; width: 10px; height: 10px; background-color: red; border-radius: 50%; pointer-events: none;")></div>
+            @* Sprite is 20x34 and points up: a white casing at the back, the shooter's color at the tip. Drawn a touch wider
+               than the 10px hitbox (like the home page duel) so the colored tip stays visible, and centered on the hitbox.
+               Only the position animates, so a bounce flips the shot instantly instead of spinning it *@
+            <img @key="bullet.Id" alt="" src=@($"images/PNG/Bullets/bullet{TankPalette.BulletColor(bullet.OwnerId, botIds.Contains(bullet.OwnerId))}Silver_outline.png")
+                 style=@($"transition: left 0.1s linear, top 0.1s linear; position: absolute; top: {bullet.PositionY + Bullet.BulletSize / 2 - spriteHeight / 2}px; left: {bullet.PositionX + Bullet.BulletSize / 2 - spriteWidth / 2}px; width: {spriteWidth}px; height: {spriteHeight}px; transform: rotate({bullet.Angle + spriteFacingOffset}deg); pointer-events: none;") />
         }
 @code {
     [Parameter]
-    public IEnumerable<BulletState> Bullets { get; set; }
-    private const string transitionConst = "transition: all 0.1s linear";
+    public IEnumerable<BulletState> Bullets { get; set; } = [];
+    [Parameter]
+    public IEnumerable<TankState> Tanks { get; set; } = [];
+    private HashSet<Guid> botIds = [];
+
+    protected override void OnParametersSet() =>
+        botIds = Tanks.Where(tank => tank.IsBot).Select(tank => tank.Id).ToHashSet();
+    // Game angles use 0deg = right; the sprite points up
+    private const int spriteFacingOffset = 90;
+    private const double spriteWidth = 12;
+    private const double spriteHeight = spriteWidth * 34 / 20;
 }

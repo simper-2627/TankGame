@@ -11,7 +11,6 @@ public class GameLoopRunner
     public const int TicksPerSecond = 10;
 
     private long lastTickAt;
-    private ReplaySaver? saver;
     public GameLoopRunner(Game game)
     {
         this.game = game;
@@ -53,8 +52,12 @@ public class GameLoopRunner
         if (game.Status != GameStatus.Ended)
         {
             game.Tick++;
+            game.RunBots();
             var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
-            game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement)).ToArray();
+            game.Tanks = game.Tanks
+                .Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement))
+                .Select(tank => tank.HitFlashTicks > 0 ? tank with { HitFlashTicks = tank.HitFlashTicks - 1 } : tank)
+                .ToArray();
             game.Bullets = game.Bullets
                 .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
                 .Where(bullet => bullet is not null)
@@ -68,11 +71,10 @@ public class GameLoopRunner
                 game.Bullets = bullets;
             }
             game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);
-            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
+            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft,
+                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin));
         }
         }
-
-        saver?.SaveTick(game.Tanks, game.Tick, game.Name ?? string.Empty);
 
         game.ServerWorkMs = Stopwatch.GetElapsedTime(tickAt).TotalMilliseconds;
         var broadcastAt = Stopwatch.GetTimestamp();

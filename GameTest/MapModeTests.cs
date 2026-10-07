@@ -7,7 +7,6 @@ namespace GameTest;
 public class MapModeTests
 {
     [Theory]
-    [InlineData(MapMode.Standard, 4, 8, 10, 900, 700)]
     [InlineData(MapMode.BigMap, 12, 20, 27, 1800, 1400)]
     [InlineData(MapMode.Foggish, 3, 40, 80, 4500, 2800)]
     public void CatalogMatchesModeAndAllSpawnsAreClear(MapMode mode, int count, int cap, int spawns, int width, int height)
@@ -23,7 +22,6 @@ public class MapModeTests
     }
 
     [Theory]
-    [InlineData(MapMode.Standard)]
     [InlineData(MapMode.BigMap)]
     [InlineData(MapMode.Foggish)]
     public void LobbyEnforcesCapacityEvenWhenPlayersAreWaiting(MapMode mode)
@@ -125,18 +123,44 @@ public class MapModeTests
         Assert.Equal(.5, camera.Scale);
         Assert.Equal((900, 700), camera.ToWorld(450, 350));
         camera = MapCamera.For(map with { Width = 2400, ViewWidth = 1000 }, 0, 0);
-        Assert.Equal(1000.0 / 2400, camera.Scale);
-        Assert.Equal((1200, 840), camera.ToWorld(500, 350));
+        Assert.Equal(.5, camera.Scale);
+        Assert.Equal((1000, 700), camera.ToWorld(500, 350));
     }
 
     [Fact]
     public void FoggishCameraFollowsAndClampsToAllMapEdges()
     {
         var map = MapCatalog.FixedMaps.First(m => m.Mode == MapMode.Foggish);
-        Assert.Equal(new MapCamera(1, 0, 0), MapCamera.For(map, 10, 10));
+        Assert.Equal(new MapCamera(.5, 0, 0), MapCamera.For(map, 10, 10));
         var middle = MapCamera.For(map, 2000, 1400);
         Assert.Equal((2000, 1400), middle.ToWorld(450, 350));
-        Assert.Equal(new MapCamera(1, 3600, 2100), MapCamera.For(map, 4500, 2800));
+        Assert.Equal(new MapCamera(.5, 2700, 1400), MapCamera.For(map, 4500, 2800));
+        Assert.Equal(MapCamera.For(MapCatalog.FixedMaps.First(m => m.Mode == MapMode.BigMap), 0, 0).Scale, middle.Scale);
+        var bottomRight = MapCamera.For(map, 4500, 2800);
+        Assert.Equal((4500, 2800), bottomRight.ToWorld(map.ViewWidth, map.ViewHeight));
+    }
+
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(390, 844)]
+    [InlineData(3440, 1440)]
+    public void FullscreenCameraCoversViewportAndKeepsAimAligned(int width, int height)
+    {
+        foreach (var mode in Enum.GetValues<MapMode>())
+        {
+            var map = MapCatalog.FixedMaps.First(m => m.Mode == mode);
+            var camera = MapCamera.For(map, map.Width / 2.0, map.Height / 2.0, width, height);
+            Assert.True(camera.X >= 0 && camera.Y >= 0);
+            Assert.True(camera.X + width / camera.Scale <= map.Width + .001);
+            Assert.True(camera.Y + height / camera.Scale <= map.Height + .001);
+            Assert.Equal((map.Width / 2, map.Height / 2), camera.ToWorld(width / 2.0, height / 2.0));
+            var edge = MapCamera.For(map, map.Width, map.Height, width, height);
+            Assert.Equal((map.Width, map.Height), edge.ToWorld(width, height));
+        }
+        var big = MapCatalog.FixedMaps.First(m => m.Mode == MapMode.BigMap);
+        var fog = MapCatalog.FixedMaps.First(m => m.Mode == MapMode.Foggish);
+        Assert.Equal(MapCamera.For(big, 0, 0, width, height).Scale,
+            MapCamera.For(fog, 0, 0, width, height).Scale);
     }
 
     [Fact]

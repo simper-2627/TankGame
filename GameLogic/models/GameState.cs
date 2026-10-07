@@ -15,6 +15,8 @@ public record GameState
     public MatchSettings Settings { get; init; } = new();
     public Guid? CreatorId { get; init; }
     public Guid? WinnerId { get; init; }
+    // The bots won (every human is out, or time ran out in single player); WinnerId is null then
+    public bool BotsWon { get; init; }
     // Null when there's no time limit or it hasn't started
     public int? SecondsLeft { get; init; }
     public GameMap? Map { get; init; }
@@ -41,20 +43,36 @@ public record DeveloperGameSettings
     public int MaxSpeed { get; init; } = 8;
     public int TurnDegrees { get; init; } = 180;
     public double BackwardSpeedMultiplier { get; init; } = 0.65;
+    public double BoostDrainPerTick { get; init; } = 2.5;
+    public double BoostRegenPerTick { get; init; } = 1.0;
+    public double BoostSpeedMultiplier { get; init; } = 5;
 }
 
 public record TankState
 {
     public long InputSequence { get; init; }
     public Guid Id { get; init; }
+    public string Name { get; init; } = "";
+    public bool IsBot { get; init; }
+    // What the bot is doing (SEEK, ATTACK, ...); only sent in Developer simulation, where it's drawn above the tank
+    public string? BotState { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }
     public int TurretAngle { get; init; }
-    public int Health { get; init; }
+    // Private while the tank is alive: only its owner (and everyone, once the match ends) gets the number
+    public int? Health { get; init; }
     public bool Eliminated { get; init; }
-    public int Deaths { get; init; }
+    // Private like Health
+    public int? Deaths { get; init; }
     public int RespawnTicksLeft { get; init; }
+    // Just got hit. Public, so everyone can see the damage without learning how much health is left
+    public bool Flashing { get; init; }
+    public bool Boosting { get; init; }
+    // Private: only filled in for the tank's own viewer, null for everyone else
+    public MapSpawnPoint? PendingSpawn { get; init; }
+    // Private: ms until the tank can fire again (0 = ready); null for everyone but the owner
+    public int? ReloadMsLeft { get; init; }
     public int HitsLanded { get; init; }
     // Destroyed with lives left, waiting to come back
     public bool Respawning => Health <= 0 && !Eliminated;
@@ -66,4 +84,6 @@ public record BulletState
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }
+    // Tank that fired it, so the client can color the shot like its shooter
+    public Guid OwnerId { get; init; }
 }

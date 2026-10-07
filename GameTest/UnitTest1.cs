@@ -441,7 +441,7 @@ public class UnitTest1
     [Fact]
     public void MapCatalogHasFixedMapsWithObstacles()
     {
-        Assert.Equal(19, MapCatalog.FixedMaps.Count);
+        Assert.Equal(15, MapCatalog.FixedMaps.Count);
         Assert.All(MapCatalog.FixedMaps, map => Assert.NotEmpty(map.Obstacles));
     }
 

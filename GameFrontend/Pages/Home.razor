@@ -66,6 +66,16 @@
     </div>
   </header>
 
+  <section class="panel">
+    <label class="field">
+      <span class="field-label">Your name</span>
+      <div class="name-input">
+        <input type="text" placeholder="Leave blank for a random name" maxlength="20" autocomplete="off"
+               @bind=playerName @bind:event="oninput" />
+      </div>
+    </label>
+  </section>
+
   <section class="panel deploy-panel">
     <div class="panel-head">
       <h2 class="panel-title"><span class="title-icon">⌖</span> Deploy a new battle</h2>
@@ -110,18 +120,17 @@
             <div class="field">
               <span class="field-label">Match type</span>
               <div class="choice-cards">
-                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.Multiplayer ? "is-selected" : "")" @onclick="() => selectedMatchType = GameMatchTypes.Multiplayer">
+                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.Multiplayer ? "is-selected" : "")" @onclick="() => SelectMatchType(GameMatchTypes.Multiplayer)">
                   <span class="choice-icon">⚔</span>
                   <span class="choice-name">Multiplayer</span>
                   <span class="choice-desc">Face off against other players in real time.</span>
                 </button>
-                <button type="button" class="choice-card is-locked" disabled>
+                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.Bots ? "is-selected" : "")" @onclick="() => SelectMatchType(GameMatchTypes.Bots)">
                   <span class="choice-icon">🤖</span>
                   <span class="choice-name">With bots</span>
-                  <span class="choice-desc">Coming soon.</span>
-                  <span class="choice-ribbon">Soon</span>
+                  <span class="choice-desc">Play solo against computer tanks.</span>
                 </button>
-                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.DeveloperSimulation ? "is-selected" : "")" @onclick="() => selectedMatchType = GameMatchTypes.DeveloperSimulation">
+                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.DeveloperSimulation ? "is-selected" : "")" @onclick="() => SelectMatchType(GameMatchTypes.DeveloperSimulation)">
                   <span class="choice-icon">🛠</span>
                   <span class="choice-name">Developer sim</span>
                   <span class="choice-desc">Sandbox with target tanks, hitboxes and live tuning.</span>
@@ -163,7 +172,7 @@
               <span class="field-label">Projectile</span>
               <div class="choice-cards two">
                 <button type="button" class="choice-card @(projectile == ProjectileType.DumbBubbles ? "is-selected" : "")" @onclick="() => projectile = ProjectileType.DumbBubbles">
-                  <span class="choice-icon">🫧</span>
+                  <span class="choice-icon"><img class="bullet-icon" src="images/PNG/Bullets/bulletYellowSilver_outline.png" alt="" /></span>
                   <span class="choice-name">@ProjectileType.DumbBubbles.Label()</span>
                   <span class="choice-desc">Slow shots you can see coming. They can bounce off walls.</span>
                 </button>
@@ -264,6 +273,45 @@
                 </div>
               </div>
             </div>
+            @if (selectedMatchType != GameMatchTypes.DeveloperSimulation)
+            {
+              <div class="field-row">
+                <div class="field">
+                  <span class="field-label">Bots <span class="field-value">@(botCount == 0 ? "None" : $"{botCount} computer tank{(botCount == 1 ? "" : "s")}")</span></span>
+                  <div class="segmented">
+                    @for (var count = MinBots; count <= MaxBots; count++)
+                    {
+                      var value = count;
+                      <button type="button" class="seg @(botCount == value ? "is-selected" : "")" @onclick="() => botCount = value">@value</button>
+                    }
+                  </div>
+                </div>
+                @if (botCount > 0)
+                {
+                  <div class="field">
+                    <span class="field-label">Bot difficulty</span>
+                    <div class="segmented">
+                      @foreach (var level in Enum.GetValues<BotDifficulty>())
+                      {
+                        var value = level;
+                        <button type="button" class="seg @(botDifficulty == value ? "is-selected" : "")" @onclick="() => botDifficulty = value">@value</button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+              @if (selectedMatchType == GameMatchTypes.Multiplayer && botCount > 0)
+              {
+                <div class="field">
+                  <span class="field-label">Clear the bots to win</span>
+                  <div class="segmented">
+                    <button type="button" class="seg @(!clearBotsToWin ? "is-selected" : "")" @onclick="() => clearBotsToWin = false">Off</button>
+                    <button type="button" class="seg @(clearBotsToWin ? "is-selected" : "")" @onclick="() => clearBotsToWin = true">On</button>
+                  </div>
+                  <p class="small text-muted">Off: the last human standing wins, even if bots are still alive. Bots join when the second player does.</p>
+                </div>
+              }
+            }
             break;
 
           default:
@@ -295,6 +343,10 @@
                   <span class="briefing-head">Rules <span class="edit">Edit</span></span>
                   <span>@health HP · @lives li@(lives == 1 ? "fe" : "ves") · respawn @(respawnSeconds) s</span>
                   <span>Time limit: @(timeLimitMinutes == 0 ? "off" : $"{timeLimitMinutes} min")</span>
+                  @if (selectedMatchType != GameMatchTypes.DeveloperSimulation && botCount > 0)
+                  {
+                    <span>@botCount bot@(botCount == 1 ? "" : "s") · @botDifficulty@(selectedMatchType == GameMatchTypes.Multiplayer && clearBotsToWin ? " · clear the bots to win" : "")</span>
+                  }
                 </button>
               </div>
             </div>
@@ -354,6 +406,7 @@
         var settings = game.Settings;
         var tankCount = game.Tanks?.Count() ?? 0;
         var full = tankCount >= (game.Map?.MaxPlayers ?? 8);
+        var singlePlayer = game.MatchType == GameMatchTypes.Bots;
         <article class="battle-card @(ended ? "is-ended" : "")">
           <div class="battle-map">
             @if (game.Map is { } map)
@@ -370,7 +423,7 @@
           </div>
           <div class="battle-body">
             <h3 class="battle-name" title="@game.Name">@game.Name</h3>
-            <div class="battle-sub">@(game.Map?.Name) &middot; @ModeLabel(game.Map?.Mode ?? MapMode.Standard) &middot; @game.MatchType</div>
+            <div class="battle-sub">@(game.Map?.Name) &middot; @ModeLabel(game.Map?.Mode ?? MapMode.BigMap) &middot; @game.MatchType</div>
             <div class="battle-players" title="@tankCount player@(tankCount == 1 ? "" : "s")">
               @for (var i = 0; i < Math.Min(tankCount, 8); i++)
               {
@@ -381,7 +434,17 @@
             <ul class="chips">
               <li>❤ @settings.Health HP</li>
               <li>↻ @settings.Lives li@(settings.Lives == 1 ? "fe" : "ves") · @settings.RespawnSeconds s</li>
-              <li>@(settings.Projectile == ProjectileType.DumbBubbles ? "🫧" : "💥") @settings.Projectile.Label()</li>
+              <li>
+                @if (settings.Projectile == ProjectileType.DumbBubbles)
+                {
+                  <img class="bullet-icon chip-bullet" src="images/PNG/Bullets/bulletYellowSilver_outline.png" alt="" />
+                }
+                else
+                {
+                  <text>💥</text>
+                }
+                @settings.Projectile.Label()
+              </li>
               @if (settings.Projectile == ProjectileType.DumbBubbles)
               {
                 <li>➶ speed @settings.BulletSpeed · @settings.MaxBounces bounce@(settings.MaxBounces == 1 ? "" : "s")</li>
@@ -389,9 +452,13 @@
               <li>⏱ reload @settings.ReloadMs ms</li>
               <li>⚙ @(settings.SpeedMultiplier)× speed</li>
               <li>⌛ @(settings.TimeLimitMinutes == 0 ? "no limit" : $"{settings.TimeLimitMinutes} min")</li>
+              @if (singlePlayer || settings.BotCount > 0)
+              {
+                <li>🤖 @Math.Max(singlePlayer ? 1 : 0, settings.BotCount) bot@(settings.BotCount == 1 ? "" : "s") · @settings.BotDifficulty</li>
+              }
             </ul>
-            <button class="btn-game primary full" disabled="@(ended || full)" @onclick="() => JoinGame(game.Name)">
-              @(ended ? "Battle over" : full ? "Full" : "Join battle →")
+            <button class="btn-game primary full" disabled="@(ended || full || singlePlayer)" @onclick="() => JoinGame(game.Name!)">
+              @(ended ? "Battle over" : singlePlayer ? "Single player" : full ? "Full" : "Join battle →")
             </button>
           </div>
         </article>
@@ -412,7 +479,7 @@
   public void Dispose() { foreach (var subscription in subscriptions) subscription.Dispose(); }
 
   private static readonly string[] steps = ["Mission", "Battlefield", "Loadout", "Rules", "Deploy"];
-  private static readonly string[] TankColors = ["tankGreen", "tankRed", "tankBlue", "tankBeige", "tankBlack"];
+  private static readonly string[] TankColors = ["tankGreen", "tankBlue", "tankBeige", "tankBlack"];
   private static readonly string[] NameAdjectives = ["Iron", "Steel", "Crimson", "Thunder", "Dust", "Rolling", "Silent", "Scorched", "Midnight", "Rusty"];
   private static readonly string[] NameNouns = ["Viper", "Storm", "Hammer", "Rhino", "Anvil", "Fury", "Badger", "Tread", "Cyclone", "Bastion"];
   private int LastStep => steps.Length - 1;
@@ -424,14 +491,15 @@
 
 
   private string userInputGameName = "";
-  private MapMode selectedMode = MapMode.Standard;
+  // Static so it survives leaving a game and coming back to the lobby
+  private static string playerName = "";
+  private MapMode selectedMode = MapMode.BigMap;
   private string? joinError;
   private static string ModeLabel(MapMode mode) => mode == MapMode.BigMap ? "Big Map" : mode.ToString();
   private string ModeDescription => selectedMode switch
   {
     MapMode.BigMap => "A larger battlefield viewed in full. Up to 20 players.",
-    MapMode.Foggish => "Explore a vast battlefield with a camera that follows your tank. Up to 40 players.",
-    _ => "Classic compact battlefields. Up to 8 players."
+    _ => "Explore a vast battlefield with a camera that follows your tank. Up to 40 players."
   };
   private void SelectMode(MapMode mode)
   {
@@ -440,6 +508,22 @@
   }
   private string selectedMapName = MapCatalog.DefaultMap.Name;
   private string selectedMatchType = "Multiplayer";
+  private int botCount;
+  private BotDifficulty botDifficulty = new MatchSettings().BotDifficulty;
+  private bool clearBotsToWin;
+  // With bots needs at least one bot; multiplayer keeps room for two humans
+  private int MinBots => selectedMatchType == GameMatchTypes.Bots ? 1 : 0;
+  private int MaxBots => selectedMatchType == GameMatchTypes.Bots ? MatchSettings.MaxBots : MatchSettings.MaxBots - 1;
+
+  private void SelectMatchType(string matchType)
+  {
+    var fromBots = selectedMatchType == GameMatchTypes.Bots;
+    selectedMatchType = matchType;
+    // Multiplayer starts without bots, not with the one With bots needed
+    if (fromBots && matchType == GameMatchTypes.Multiplayer)
+      botCount = 0;
+    botCount = Math.Clamp(botCount, MinBots, MaxBots);
+  }
   private int reloadMs = new MatchSettings().ReloadMs;
   private int maxBounces = new MatchSettings().MaxBounces;
   private ProjectileType projectile = new MatchSettings().Projectile;
@@ -571,13 +655,16 @@
       Lives = lives,
       RespawnSeconds = respawnSeconds,
       SpeedMultiplier = speedMultiplier,
-      TimeLimitMinutes = timeLimitMinutes
+      TimeLimitMinutes = timeLimitMinutes,
+      BotCount = selectedMatchType == GameMatchTypes.DeveloperSimulation ? 0 : botCount,
+      BotDifficulty = botDifficulty,
+      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && clearBotsToWin
     };
     try
     {
       // Invoke (not Send) so a server-side rejection comes back as an exception
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings);
+        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim());
     }
     catch (Exception ex)
     {
@@ -594,7 +681,7 @@
     try
     {
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.JoinGame, gameName);
+        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim());
     }
     catch
     {

@@ -18,8 +18,8 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
-  // SignalR doesn't fill optional parameters, so clients must send all four arguments
-  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null)
+  // SignalR doesn't fill optional parameters, so clients must send every argument
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null, string? playerName = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -30,7 +30,7 @@ public class LobbyHub : Hub
     var game = lobby.CreateGame(name, mapName, matchType, settings);
     Console.WriteLine($"created game: {name}");
 
-    var playerId = game.JoinGame();
+    var playerId = game.JoinGame(playerName);
 
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.CreatedGame, game.Name, playerId);
     game.loopRunner.RunGameLoop();
@@ -39,12 +39,12 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync(Messages.GameList, games);
   }
 
-  public async Task JoinGame(string gameName)
+  public async Task JoinGame(string gameName, string? playerName = null)
   {
     var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
       ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
-    var playerId = game.JoinGame();
-    await SubscribeToGame(gameName);
+    var playerId = game.JoinGame(playerName);
+    await SubscribeToGame(gameName, playerId);
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.JoinedGame, game.Name, playerId);
     await Clients.All.SendAsync(Messages.GameList, lobby.Games.Select(g => g.GetGameState()).ToArray());
   }
@@ -57,7 +57,8 @@ public class LobbyHub : Hub
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.GameList, games);
   }
 
-  public async Task SubscribeToGame(string gameName)
+  // playerId lets the game send this connection its own private state (SignalR doesn't fill optional parameters, so clients send both)
+  public async Task SubscribeToGame(string gameName, Guid? playerId = null)
   {
     Console.WriteLine("subscribing to game");
 
@@ -65,8 +66,8 @@ public class LobbyHub : Hub
       ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
 
     // Deliver immutable map data once, before enrolling this connection in live updates.
-    await game.SendInitialUpdate(Context.ConnectionId);
-    game.ConnectedClients.TryAdd(Context.ConnectionId, 0);
+    await game.SendInitialUpdate(Context.ConnectionId, playerId);
+    game.ConnectedClients[Context.ConnectionId] = playerId;
 
   }
 
@@ -97,6 +98,15 @@ public class LobbyHub : Hub
     var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
       ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
     game.UpdateMatchSettings(playerId, settings);
+    await game.BroadcastUpdate();
+  }
+
+  public async Task AddBot(string gameName)
+  {
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
+      ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
+    if (game.AddBot() is null)
+      throw new HubException("cannot add a bot to this battle");
     await game.BroadcastUpdate();
   }
 

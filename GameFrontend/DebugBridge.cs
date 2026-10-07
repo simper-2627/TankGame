@@ -9,7 +9,7 @@ public static class DebugBridge
   public static SignalRService? Service;
 
   [JSInvokable]
-  public static Task Input(string gameName, string playerId, bool up, bool down, bool left, bool right, bool shoot, int aimX, int aimY)
+  public static Task Input(string gameName, string playerId, bool up, bool down, bool left, bool right, bool shoot, int aimX, int aimY, bool boost = false)
   {
     var request = new PlayerInputRequest
     {
@@ -17,6 +17,7 @@ public static class DebugBridge
       PlayerId = Guid.Parse(playerId),
       Up = up, Down = down, Left = left, Right = right,
       Shoot = shoot,
+      Boost = boost,
       AimX = aimX, AimY = aimY,
     };
     return Service?.HubConnection?.SendAsync(Messages.PlayerInput, request) ?? Task.CompletedTask;

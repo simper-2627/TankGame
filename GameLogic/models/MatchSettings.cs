@@ -34,6 +34,8 @@ public record MatchSettings
     public const int MinLives = 1;
     public const int MaxLives = 10;
     public const int MaxRespawnSeconds = 15;
+    // A bot match needs at least one human
+    public const int MaxBots = 7;
     public static readonly double[] SpeedChoices = [0.5, 0.75, 1, 1.25, 1.5, 2];
     // 0 = no time limit
     public static readonly int[] TimeLimitChoices = [0, 1, 2, 3, 5, 10];
@@ -48,9 +50,14 @@ public record MatchSettings
     // Deaths a tank can take; the last death is permanent
     public int Lives { get; init; } = DefaultLives;
     // Wait between dying and coming back (0 = next tick)
-    public int RespawnSeconds { get; init; } = 5;
+    public int RespawnSeconds { get; init; } = 3;
     public double SpeedMultiplier { get; init; } = 1;
     public int TimeLimitMinutes { get; init; } = 0;
+    // Computer tanks in the match (With bots: at least 1; Multiplayer: 0 means none)
+    public int BotCount { get; init; }
+    public BotDifficulty BotDifficulty { get; init; } = BotDifficulty.Medium;
+    // Multiplayer only: the last human also has to knock out every bot before winning
+    public bool ClearBotsToWin { get; init; }
 
     // Clients can send anything; snap every value to an allowed choice
     public static MatchSettings Sanitize(MatchSettings incoming) => new()
@@ -67,11 +74,18 @@ public record MatchSettings
             : 1,
         // long math: int.MinValue would overflow Math.Abs
         TimeLimitMinutes = TimeLimitChoices.MinBy(choice => Math.Abs((long)choice - incoming.TimeLimitMinutes)),
+        BotCount = Math.Clamp(incoming.BotCount, 0, MaxBots),
+        BotDifficulty = Enum.IsDefined(incoming.BotDifficulty) ? incoming.BotDifficulty : BotDifficulty.Medium,
+        ClearBotsToWin = incoming.ClearBotsToWin,
     };
 
-    // Health, lives and the time limit can't change once the match is running
+    // Health, lives, the time limit and the bot rules can't change once the match is running
     public MatchSettings WithLockedFrom(MatchSettings current) =>
-        this with { Health = current.Health, Lives = current.Lives, TimeLimitMinutes = current.TimeLimitMinutes };
+        this with
+        {
+            Health = current.Health, Lives = current.Lives, TimeLimitMinutes = current.TimeLimitMinutes,
+            BotCount = current.BotCount, ClearBotsToWin = current.ClearBotsToWin
+        };
 
     // Tank speed scales top speed and acceleration together so handling feels the same; turning is unchanged
     public DeveloperGameSettings ScaleMovement(DeveloperGameSettings baseSettings) => baseSettings with

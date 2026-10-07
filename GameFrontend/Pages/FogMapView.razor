@@ -1,0 +1,37 @@
+@using GameLogic
+
+<svg class="fog-map" viewBox="0 0 @Map.Width @Map.Height" role="img" aria-label="Explored terrain, obstacles, opponent sightings, and current camera view">
+    <defs>
+        <mask id="@maskId" maskUnits="userSpaceOnUse" x="0" y="0" width="@Map.Width" height="@Map.Height">
+            <rect width="@Map.Width" height="@Map.Height" fill="white" />
+            <path d="@Memory.ExploredPath" fill="black" />
+        </mask>
+    </defs>
+    <MapShapes Map="Map" />
+    <rect width="@Map.Width" height="@Map.Height" fill="#080f14" mask="url(#@maskId)" />
+    @foreach (var contact in Memory.Contacts.Values)
+    {
+        <circle cx="@N(contact.X)" cy="@N(contact.Y)" r="42" fill="@(contact.Visible ? "#ff2851" : "#ff9800")"
+                stroke="#061016" stroke-width="4" vector-effect="non-scaling-stroke" paint-order="stroke fill">
+            <title>@(contact.Visible ? "Opponent in view" : "Last seen opponent")</title>
+        </circle>
+    }
+    @if (Viewer is { } viewer && !viewer.Eliminated && !viewer.Respawning)
+    {
+        <circle cx="@(viewer.PositionX + Tank.Size / 2)" cy="@(viewer.PositionY - VisualTopOffset + Tank.Size / 2)" r="48" fill="#00ffad" stroke="#061016" stroke-width="4" vector-effect="non-scaling-stroke" paint-order="stroke fill"><title>Your tank</title></circle>
+    }
+    <rect x="@N(Camera.X)" y="@N(Camera.Y)" width="@N(Width / Camera.Scale)" height="@N(Height / Camera.Scale)"
+          fill="none" stroke="#f5fbff" stroke-width="3" vector-effect="non-scaling-stroke" />
+</svg>
+
+@code {
+    [Parameter, EditorRequired] public GameMap Map { get; set; } = default!;
+    [Parameter, EditorRequired] public FogMapMemory Memory { get; set; } = default!;
+    [Parameter] public MapCamera Camera { get; set; }
+    [Parameter] public double Width { get; set; }
+    [Parameter] public double Height { get; set; }
+    [Parameter] public TankState? Viewer { get; set; }
+    [Parameter] public int VisualTopOffset { get; set; }
+    private readonly string maskId = $"fog-{Guid.NewGuid():N}";
+    private static string N(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

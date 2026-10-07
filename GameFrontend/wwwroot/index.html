@@ -30,10 +30,13 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="game-performance.js"></script>
+    <script src="game-viewport.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script>
         // Give the board focus back when this window/tab is returned to (e.g. switching between two instances)
-        window.addEventListener('focus', () => document.querySelector('.game-board')?.focus());
+        window.addEventListener('focus', () => {
+            if (!document.querySelector('dialog[open]')) document.querySelector('.game-board')?.focus();
+        });
     </script>
 </body>
 

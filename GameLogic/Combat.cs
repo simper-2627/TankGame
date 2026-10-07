@@ -1,7 +1,7 @@
 namespace GameLogic;
 
-// WinnerId is null when an ended match is a draw
-public record MatchResult(bool Ended, Guid? WinnerId)
+// WinnerId is null when an ended match is a draw, or when the bots won (BotsWon)
+public record MatchResult(bool Ended, Guid? WinnerId, bool BotsWon = false)
 {
     public static readonly MatchResult Ongoing = new(false, null);
 }
@@ -39,7 +39,7 @@ public static class Combat
     {
         var target = tankList[targetIndex];
         var health = Math.Max(0, target.Health - 1);
-        tankList[targetIndex] = health > 0 ? target with { Health = health } : Destroy(target, match);
+        tankList[targetIndex] = health > 0 ? target with { Health = health, HitFlashTicks = Tank.HitFlashTicksOnHit } : Destroy(target, match);
 
         // Shooting yourself with a bounce doesn't count as a hit landed
         var shooterIndex = tankList.FindIndex(tank => tank.Id == shooterId);
@@ -109,29 +109,36 @@ public static class Combat
         {
             var tank = result[i];
             if (!tank.Respawning) continue;
+            // Picked ahead of time so the owner can see where they'll return; re-picked only if someone takes the spot
+            var spawn = tank.PendingSpawn is { } pending && SpawnSelector.IsFree(map, result, pending, settings)
+                ? pending
+                : SpawnSelector.Choose(map, result, rng, settings);
             if (tank.RespawnTicksLeft > 1)
             {
-                result[i] = tank with { RespawnTicksLeft = tank.RespawnTicksLeft - 1 };
+                result[i] = tank with { RespawnTicksLeft = tank.RespawnTicksLeft - 1, PendingSpawn = spawn };
                 continue;
             }
-            var spawn = SpawnSelector.Choose(map, result, rng, settings);
-            result[i] = spawn is null ? tank with { RespawnTicksLeft = 0 } : tank with
+            result[i] = spawn is null ? tank with { RespawnTicksLeft = 0, PendingSpawn = null } : tank with
             {
                 PositionX = spawn.X, PositionY = spawn.Y,
                 Angle = spawn.Angle, TurretAngle = spawn.Angle,
                 Health = match.Health, RespawnTicksLeft = 0, NextShotAtMs = 0,
-                AimX = null, AimY = null
+                AimX = null, AimY = null, PendingSpawn = null
             };
         }
         return result;
     }
 
     // A match needs 2 players before it can end, or the creator would win alone.
-    // ticksLeft is null when there's no time limit (or it hasn't started)
-    public static MatchResult DecideResult(IReadOnlyCollection<Tank> tanks, int? ticksLeft)
+    // ticksLeft is null when there's no time limit (or it hasn't started).
+    // With bots in the match the rules change (see DecideWithBots); without them it's last tank standing
+    public static MatchResult DecideResult(IReadOnlyCollection<Tank> tanks, int? ticksLeft,
+        bool singlePlayer = false, bool clearBotsToWin = false)
     {
         if (tanks.Count < 2)
             return MatchResult.Ongoing;
+        if (tanks.Any(tank => tank.IsBot))
+            return DecideWithBots(tanks, ticksLeft, singlePlayer, clearBotsToWin);
 
         var alive = tanks.Where(tank => !tank.Eliminated).ToList();
         if (alive.Count == 0)
@@ -140,6 +147,36 @@ public static class Combat
             return new MatchResult(true, alive[0].Id);
         if (ticksLeft is <= 0)
             return ByHealthThenHits(alive);
+        return MatchResult.Ongoing;
+    }
+
+    // Single player: clear every bot before the clock runs out. Multiplayer: bots are a hazard, not the opponent,
+    // so the last human standing wins (unless the creator asked for the bots to be cleared too) and only humans are ranked on time
+    private static MatchResult DecideWithBots(IReadOnlyCollection<Tank> tanks, int? ticksLeft, bool singlePlayer, bool clearBotsToWin)
+    {
+        var humansAlive = tanks.Where(tank => !tank.IsBot && !tank.Eliminated).ToList();
+        var botsAlive = tanks.Count(tank => tank.IsBot && !tank.Eliminated);
+        var timeUp = ticksLeft is <= 0;
+
+        // A multiplayer match can't end until a second human has joined (the Developer simulation can add a bot early)
+        if (!singlePlayer && tanks.Count(tank => !tank.IsBot) < 2)
+            return MatchResult.Ongoing;
+
+        if (humansAlive.Count == 0)
+            return botsAlive > 0 ? new MatchResult(true, null, BotsWon: true) : new MatchResult(true, null);
+
+        if (singlePlayer)
+        {
+            if (botsAlive == 0)
+                return new MatchResult(true, humansAlive[0].Id);
+            return timeUp ? new MatchResult(true, null, BotsWon: true) : MatchResult.Ongoing;
+        }
+
+        var mustClearBots = clearBotsToWin && botsAlive > 0;
+        if (humansAlive.Count == 1 && (!mustClearBots || timeUp))
+            return new MatchResult(true, humansAlive[0].Id);
+        if (humansAlive.Count >= 2 && timeUp)
+            return ByHealthThenHits(humansAlive);
         return MatchResult.Ongoing;
     }
 

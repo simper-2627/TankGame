@@ -8,6 +8,7 @@ public record PlayerInputRequest
   public required bool Right { get; init; }
   public required bool Down { get; init; }
   public required bool Shoot { get; init; }
+  public required bool Boost { get; init; }
   public long InputSequence { get; init; }
   // Mouse position on the board; null until the mouse has moved over it
   public int? AimX { get; init; }

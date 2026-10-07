@@ -1,14 +1,7 @@
 services:
-  backend:
+  tankgame:
     build:
       context: .
       dockerfile: GameApi/Dockerfile
     ports:
-      - "5135:8080"
-
-  frontend:
-    build:
-      context: .
-      dockerfile: GameFrontend/Dockerfile
-    ports:
-      - "3000:3000"
+      - "3000:8080"

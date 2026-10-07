@@ -588,6 +588,20 @@ kbd {
 }
 
 .choice-icon { font-size: 1.6rem; line-height: 1.2; }
+
+/* The in-game bullet sprite standing in for an emoji; rotated to lie on its side like a shot in flight */
+.bullet-icon {
+    display: block;
+    height: 1.6rem;
+    width: auto;
+    transform: rotate(45deg);
+}
+
+.chip-bullet {
+    display: inline-block;
+    height: 0.95rem;
+    vertical-align: -0.15em;
+}
 .choice-name { font-weight: 700; font-size: 1rem; }
 .choice-desc { color: var(--muted); font-size: 0.85rem; line-height: 1.3; }
 

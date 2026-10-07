@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace GameLogic;
 
-public enum MapMode { Standard, BigMap, Foggish }
+public enum MapMode { BigMap = 1, Foggish = 2 }
 
 public record ModeSettings(int Width, int Height, int ViewWidth, int ViewHeight, int MaxPlayers, int SpawnCount);
 

@@ -5,7 +5,46 @@
     /* Animations run on the client from the moment an explosion appears, so they don't step with the 100 ms game tick */
     @@keyframes boom-life { from { transform: scale(0.7); opacity: 1; } to { transform: scale(1.2); opacity: 0.3; } }
     @@keyframes boom-frame { from { opacity: 1; } to { opacity: 1; } }
-    @@keyframes tracer-fade { from { opacity: 1; } to { opacity: 0; } }
+    @@keyframes shot-wake-life {
+        from { opacity: .85; transform: scaleY(.45); }
+        to { opacity: 0; transform: scaleY(1.5); }
+    }
+    @@keyframes muzzle-blast-life {
+        0% { opacity: 1; transform: scale(.25, .5); }
+        25% { opacity: 1; transform: scale(1, 1); }
+        100% { opacity: 0; transform: scale(1.25, .65); }
+    }
+    .muzzle-blast {
+        position: relative;
+        width: 64px;
+        height: 40px;
+        transform-origin: 0 50%;
+        animation: muzzle-blast-life 180ms ease-out forwards;
+        filter: brightness(1.35) saturate(1.3);
+    }
+    .muzzle-blast::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 12px;
+        width: 30px;
+        height: 16px;
+        border-radius: 50%;
+        background: radial-gradient(ellipse at 15% 50%, #fffde5, #ffd35a 30%, #ff7b1b80 60%, transparent 75%);
+    }
+    .shot-wake {
+        display: block;
+        width: 100%;
+        height: 100%;
+        /* Refract the terrain into a short, neutral pressure wake instead of a glowing beam. */
+        backdrop-filter: blur(2.2px) contrast(1.18) brightness(1.08);
+        -webkit-backdrop-filter: blur(2.2px) contrast(1.18) brightness(1.08);
+        background: linear-gradient(180deg, transparent 10%, rgba(235, 231, 213, .16) 35%, rgba(35, 40, 34, .12) 55%, transparent 90%);
+        mask-image: linear-gradient(90deg, transparent, black 8%, black 85%, transparent);
+        -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 85%, transparent);
+        clip-path: polygon(0 40%, 18% 22%, 36% 35%, 55% 18%, 74% 32%, 100% 40%, 100% 60%, 74% 70%, 55% 82%, 36% 65%, 18% 78%, 0 60%);
+        animation: shot-wake-life 180ms ease-out forwards;
+    }
 </style>
 
 @* Frames are fetched up front so the first explosion isn't waiting on the network *@
@@ -18,7 +57,7 @@
 
 @foreach (var explosion in Explosions)
 {
-    @* Tracer: a quick red line from the muzzle to the impact *@
+    @* A fleeting heat-haze wake from muzzle to impact. *@
     if (explosion.Age < TracerTicks)
     {
         var dx = explosion.X - explosion.FromX;
@@ -26,7 +65,19 @@
         var length = Math.Sqrt(dx * dx + dy * dy).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
         var degrees = (Math.Atan2(dy, dx) * 180 / Math.PI).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         <div @key="@($"{explosion.Id}-tracer")" class="shot-tracer"
-             style=@($"position: absolute; left: {explosion.FromX}px; top: {explosion.FromY - 1}px; width: {length}px; height: 3px; background: linear-gradient(90deg, rgba(255,60,60,0.2), #ff2a2a); box-shadow: 0 0 6px #ff2a2a; transform-origin: 0 50%; transform: rotate({degrees}deg); animation: tracer-fade {TracerMs}ms linear forwards; pointer-events: none; z-index: 4;")></div>
+             style=@($"position: absolute; left: {explosion.FromX}px; top: {explosion.FromY - 14}px; width: {length}px; height: 28px; transform-origin: 0 50%; transform: rotate({degrees}deg); pointer-events: none; z-index: 4;")>
+            <span class="shot-wake"></span>
+        </div>
+        <div @key="@($"{explosion.Id}-muzzle")" aria-hidden="true"
+             style=@($"position: absolute; left: {explosion.FromX}px; top: {explosion.FromY - 20}px; width: 64px; height: 40px; transform-origin: 0 50%; transform: rotate({degrees}deg); pointer-events: none; z-index: 6;")>
+            <div class="muzzle-blast">
+                @for (var frame = 0; frame < FrameCount; frame++)
+                {
+                    <img src=@($"images/Explosion/explosion{frame:00}.png") alt="" draggable="false"
+                         style=@($"position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; animation: boom-frame 20ms linear {frame * 20}ms 1;") />
+                }
+            </div>
+        </div>
     }
     @* The fireball starts on its first frame the instant it appears; nothing here depends on the tick *@
     <div @key="explosion.Id"
@@ -47,7 +98,6 @@
     // Twice the size of a dumb bubble (10 px), so it marks the hit without hiding the tank
     private const int Size = Bullet.BulletSize * 2 + 4;
     private const int LifeMs = Explosion.Ticks * 100;
-    // The tracer is only there for the first 3 ticks (0.3 s), fading as it goes
-    private const int TracerTicks = 3;
-    private const int TracerMs = TracerTicks * 100;
+    // The wake fades in 180 ms and is removed after two server ticks.
+    private const int TracerTicks = 2;
 }

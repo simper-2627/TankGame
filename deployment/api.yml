@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $NAMESPACE
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tankgame
+  namespace: $NAMESPACE
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: tankgame
+  template:
+    metadata:
+      labels:
+        app: tankgame
+    spec:
+      containers:
+        - name: api
+          image: dharryc/tankgame:$GITHUB_SHA
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 512Mi
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tankgame
+  namespace: $NAMESPACE
+spec:
+  selector:
+    app: tankgame
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tankgame
+  namespace: $NAMESPACE
+  annotations:
+    tailscale.com/funnel: "true"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: tankgame
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - $NAMESPACE

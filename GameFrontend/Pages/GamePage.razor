@@ -16,9 +16,9 @@
 }
 @if (game != null)
 {
-  <div class="d-flex align-items-start gap-3">
-    <div>
-      <div class="d-flex align-items-center gap-2 mb-2">
+  <div class="game-screen">
+    <div class="game-hud">
+      <div class="d-flex flex-wrap align-items-center gap-2">
         <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
         <span>@game.MatchType</span>
         @if (game.SecondsLeft is int secondsLeft)
@@ -29,7 +29,8 @@
       @if (game.Status == GameStatus.Ended)
       {
         <div class="alert alert-info py-2 mb-2">
-          @(game.WinnerId is null ? "Draw!"
+          @(game.BotsWon ? "The bots won!"
+            : game.WinnerId is null ? "Draw!"
             : game.WinnerId == PlayerId ? "You win!"
             : $"{game.WinnerId.Value.ToString()[^5..]} wins")
         </div>
@@ -38,40 +39,68 @@
       {
         <div class="small mb-2">@(LocalTank?.Respawning == true ? "Waiting to respawn" : "Eliminated") &middot; @(CameraTarget is null ? "No living players to follow" : $"Following {CameraTarget.Id.ToString()[^5..]}")</div>
       }
-      <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.ViewWidth ?? 900)" BoardHeight="@(game.Map?.ViewHeight ?? 700)" Camera="Camera">
+    </div>
+      <PlayerControls GameName=@GameName PlayerId=PlayerId ViewportChanged="ResizeViewport" Camera="Camera">
         @if (game.Map is { } map)
         {
           <MapSurface Map="map" />
         }
         @foreach (var tank in game.Tanks ?? [])
         {
-          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" MaxHealth="@game.Settings.Health" MaxLives="@game.Settings.Lives" />
+          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" MaxHealth="@game.Settings.Health" MaxLives="@game.Settings.Lives" ReloadMs="@game.Settings.ReloadMs" />
           @if (showHitbox && game.MatchType == GameMatchTypes.DeveloperSimulation)
           {
             var area = Tank.GetCollisionArea(new Tank { PositionX = tank.PositionX, PositionY = tank.PositionY }, game.DeveloperSettings);
-            <div class="tank-hitbox" style="@($"position: absolute; left: {area.X}px; top: {area.Y}px; width: {area.Width}px; height: {area.Height}px; border: 1px solid #e00060; background: #e0006018; pointer-events: none; z-index: 10;")"></div>
+            <div class="tank-hitbox" style="@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {area.X}px; top: {area.Y}px; width: {area.Width}px; height: {area.Height}px; border: 1px solid #e00060; background: #e0006018; pointer-events: none; z-index: 10;")"></div>
           }
         }
-        <BulletsComponent Bullets="@(game.Bullets ?? [])" />
+        @if (LocalTank is { Respawning: true, PendingSpawn: { } spawn })
+        {
+          @* Private to this player: the server only sends it to the owner *@
+          <div class="spawn-marker" title="You respawn here"
+               style="@($"left: {spawn.X}px; top: {spawn.Y - game.DeveloperSettings.VisualTopOffset}px; width: {Tank.Size}px; height: {Tank.Size}px;")"></div>
+        }
+        <BulletsComponent Bullets="@(game.Bullets ?? [])" Tanks="@(game.Tanks ?? [])" />
         <ExplosionsComponent Explosions="@(game.Explosions ?? [])" />
       </PlayerControls>
-    </div>
+    @if (viewportMeasured && game.Map is { Mode: MapMode.Foggish } fogMap)
+    {
+      <FogMinimap @key="GameName" Map="fogMap" Tanks="@(game.Tanks ?? [])" PlayerId="PlayerId" Camera="Camera"
+                  Width="viewportWidth" Height="viewportHeight" VisualTopOffset="game.DeveloperSettings.VisualTopOffset" />
+    }
+
+    <button type="button" class="settings-toggle" aria-label="Open settings" title="Settings"
+            aria-haspopup="dialog" aria-controls="game-settings" @onclick="OpenSettings">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="m9 3-.7 2.5-2.2 1.3-2.5-.6-2 3.6 1.8 1.9v2.6l-1.8 1.9 2 3.6 2.5-.6 2.2 1.3L9 23h4l.7-2.5 2.2-1.3 2.5.6 2-3.6-1.8-1.9v-2.6l1.8-1.9-2-3.6-2.5.6-2.2-1.3L13 3Z" transform="translate(1 -1) scale(.95)" />
+        <circle cx="11.5" cy="11.5" r="3.5" />
+      </svg>
+    </button>
+    <dialog id="game-settings" class="settings-modal" @ref="settingsDialog" aria-labelledby="settings-title">
+      <header class="settings-header">
+        <h2 id="settings-title">Settings</h2>
+        <button type="button" class="btn-close" aria-label="Close settings" @onclick="CloseSettings"></button>
+      </header>
+      <p>Drive with WASD or the arrow keys, aim with the mouse, and click to fire.</p>
+      <a href="/" class="btn btn-outline-secondary mb-3">Return to lobby</a>
+      <div class="settings-panels">
 
     @if (game.MatchType == GameMatchTypes.DeveloperSimulation)
     {
-      <aside style="width: 280px; padding: 12px; border: 1px solid #cbd5e1; background: #f8fafc;">
+      <aside class="developer-settings">
         <h3 style="font-size: 1rem; margin-bottom: 12px;">Developer settings</h3>
         <button type="button" class="btn btn-outline-secondary mb-3" @onclick="ResetDeveloperSettings">Reset to defaults</button>
         <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddTargetTank">Add target tank</button>
+        <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddBot">Add bot</button>
         <table class="table table-sm small mb-3">
           <thead><tr><th>Tank</th><th>HP</th><th>Lives</th><th>Hits</th></tr></thead>
           <tbody>
             @foreach (var tank in game.Tanks ?? [])
             {
               <tr>
-                <td>@tank.Id.ToString()[^5..]@(tank.Id == PlayerId ? " (you)" : "")</td>
-                <td>@tank.Health/@game.Settings.Health</td>
-                <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : (game.Settings.Lives - tank.Deaths).ToString())</td>
+                <td>@tank.Id.ToString()[^5..]@(tank.IsBot ? " 🤖" : "")@(tank.Id == PlayerId ? " (you)" : "")</td>
+                <td>@(tank.Health is int health ? $"{health}/{game.Settings.Health}" : "?")</td>
+                <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : tank.Deaths is int deaths ? (game.Settings.Lives - deaths).ToString() : "?")</td>
                 <td>@tank.HitsLanded</td>
               </tr>
             }
@@ -126,20 +155,41 @@
           Reverse speed multiplier: @backwardSpeedMultiplier.ToString("0.00")
           <input class="form-range" type="range" min="0.10" max="1.50" step="0.05" value="@backwardSpeedMultiplier" @oninput="SetBackwardSpeedMultiplier">
         </label>
+
+        <label class="form-label d-block">
+          Boost drain per tick: @boostDrainPerTick.ToString("0.0")
+          <input class="form-range" type="range" min="0.1" max="20" step="0.1" value="@boostDrainPerTick" @oninput="SetBoostDrainPerTick">
+        </label>
+
+        <label class="form-label d-block">
+          Boost regen per tick: @boostRegenPerTick.ToString("0.0")
+          <input class="form-range" type="range" min="0.1" max="20" step="0.1" value="@boostRegenPerTick" @oninput="SetBoostRegenPerTick">
+        </label>
+
+        <label class="form-label d-block">
+          Boost speed multiplier: @boostSpeedMultiplier.ToString("0.00")
+          <input class="form-range" type="range" min="1.0" max="4.0" step="0.05" value="@boostSpeedMultiplier" @oninput="SetBoostSpeedMultiplier">
+        </label>
       </aside>
     }
 
     @if (game.CreatorId == PlayerId)
     {
       <MatchSettingsPanel Settings="game.Settings" Changed="SendMatchSettings"
-                          AllowLockedEdits="@(game.MatchType == GameMatchTypes.DeveloperSimulation)" />
+                          AllowLockedEdits="@(game.MatchType == GameMatchTypes.DeveloperSimulation)"
+                          ShowBotDifficulty="@(game.MatchType != GameMatchTypes.Multiplayer || game.Settings.BotCount > 0)" />
     }
+      </div>
+    </dialog>
   </div>
 }
 
 @code {
+  private ElementReference settingsDialog;
+  private Task OpenSettings() => JS.InvokeVoidAsync("tankViewport.openSettings", settingsDialog).AsTask();
+  private Task CloseSettings() => JS.InvokeVoidAsync("tankViewport.closeSettings", settingsDialog).AsTask();
   [Parameter]
-  public string GameName { get; set; }
+  public string GameName { get; set; } = string.Empty;
 
   [Parameter]
   public Guid PlayerId { get; set; }
@@ -157,17 +207,28 @@
       return target;
     }
   }
-  private MapCamera lastCamera = new(1, 0, 0);
+  private bool viewportMeasured;
+  private double viewportWidth = 900;
+  private double viewportHeight = 700;
+  private double cameraCenterX;
+  private double cameraCenterY;
+  private void ResizeViewport((double Width, double Height) size)
+  {
+    viewportMeasured = true;
+    viewportWidth = size.Width;
+    viewportHeight = size.Height;
+  }
   private MapCamera Camera
   {
     get
     {
-      if (game?.Map is not { } map) return lastCamera;
-      var target = CameraTarget;
-      if (target is not null || map.Mode != MapMode.Foggish)
-        lastCamera = MapCamera.For(map, (target?.PositionX ?? 0) + Tank.Size / 2,
-          (target?.PositionY ?? 0) - game.DeveloperSettings.VisualTopOffset + Tank.Size / 2);
-      return lastCamera;
+      if (game?.Map is not { } map) return new(1, 0, 0);
+      if (CameraTarget is { } target)
+      {
+        cameraCenterX = target.PositionX + Tank.Size / 2;
+        cameraCenterY = target.PositionY - game.DeveloperSettings.VisualTopOffset + Tank.Size / 2;
+      }
+      return MapCamera.For(map, cameraCenterX, cameraCenterY, viewportWidth, viewportHeight);
     }
   }
   private bool developerSettingsLoaded = false;
@@ -181,6 +242,9 @@
   private int maxSpeed = new DeveloperGameSettings().MaxSpeed;
   private int turnDegrees = new DeveloperGameSettings().TurnDegrees;
   private double backwardSpeedMultiplier = 0.65;
+  private double boostDrainPerTick = new DeveloperGameSettings().BoostDrainPerTick;
+  private double boostRegenPerTick = new DeveloperGameSettings().BoostRegenPerTick;
+  private double boostSpeedMultiplier = new DeveloperGameSettings().BoostSpeedMultiplier;
 
   private IDisposable? gameSubscription;
   private bool disposed;
@@ -191,7 +255,7 @@
   private async Task Resubscribe(string? connectionId)
   {
     if (!disposed && signalR.HubConnection is { } connection)
-      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName); connectionError = null; }
+      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName, PlayerId); connectionError = null; }
       catch (HubException ex) { game = null; connectionError = ex.Message; await InvokeAsync(StateHasChanged); }
   }
   protected override async Task OnParametersSetAsync()
@@ -223,7 +287,7 @@
     {
       connection.Reconnected -= Resubscribe;
       connection.Reconnected += Resubscribe;
-      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName); connectionError = null; }
+      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName, PlayerId); connectionError = null; }
       catch (HubException ex) { game = null; connectionError = ex.Message; await InvokeAsync(StateHasChanged); }
     }
 
@@ -270,6 +334,9 @@
     maxSpeed = settings.MaxSpeed;
     turnDegrees = settings.TurnDegrees;
     backwardSpeedMultiplier = settings.BackwardSpeedMultiplier;
+    boostDrainPerTick = settings.BoostDrainPerTick;
+    boostRegenPerTick = settings.BoostRegenPerTick;
+    boostSpeedMultiplier = settings.BoostSpeedMultiplier;
     developerSettingsLoaded = true;
   }
 
@@ -321,6 +388,24 @@
     await SendDeveloperSettings();
   }
 
+  private async Task SetBoostDrainPerTick(ChangeEventArgs e)
+  {
+      boostDrainPerTick = ReadDouble(e, boostDrainPerTick);
+      await SendDeveloperSettings();
+  }
+
+  private async Task SetBoostRegenPerTick(ChangeEventArgs e)
+  {
+      boostRegenPerTick = ReadDouble(e, boostRegenPerTick);
+      await SendDeveloperSettings();
+  }
+
+  private async Task SetBoostSpeedMultiplier(ChangeEventArgs e)
+  {
+      boostSpeedMultiplier = ReadDouble(e, boostSpeedMultiplier);
+      await SendDeveloperSettings();
+  }
+
   private async Task SendDeveloperSettings()
   {
     var settings = new DeveloperGameSettings
@@ -333,7 +418,10 @@
       BrakeAcceleration = brakeAcceleration,
       MaxSpeed = maxSpeed,
       TurnDegrees = turnDegrees,
-      BackwardSpeedMultiplier = backwardSpeedMultiplier
+      BackwardSpeedMultiplier = backwardSpeedMultiplier,
+      BoostDrainPerTick = boostDrainPerTick,
+      BoostRegenPerTick = boostRegenPerTick,
+      BoostSpeedMultiplier = boostSpeedMultiplier
     };
 
     await signalR.HubConnection?.SendAsync(Messages.UpdateDeveloperSettings, GameName, settings)!;
@@ -355,7 +443,13 @@
   // Dev simulation only: another tank to shoot at (it just sits at its spawn point)
   private async Task AddTargetTank()
   {
-    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName)!;
+    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "")!;
+  }
+
+  // Dev simulation only: a computer tank that uses the match's bot difficulty
+  private async Task AddBot()
+  {
+    await signalR.HubConnection?.SendAsync(Messages.AddBot, GameName)!;
   }
 
   private async Task SetSlideAlongWalls(ChangeEventArgs e)

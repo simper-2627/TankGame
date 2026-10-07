@@ -1,0 +1,38 @@
+@using GameLogic
+@* Small white gauge on the top-right of your own tank that fills clockwise while the gun reloads, then fades. Enemies never get a reload value, so for them it draws nothing. *@
+@code {
+    // Ms until the next shot; null when the server isn't telling us (not our tank), 0 when ready
+    [Parameter] public int? MsLeft { get; set; }
+    [Parameter] public int TotalMs { get; set; } = MatchSettings.DefaultReloadMs;
+
+    private const double radius = 34;
+    private const double circumference = 2 * Math.PI * radius;
+
+    private int run;
+    private int runMs;
+    private double startOffset;
+    private int? previous;
+
+    // The fill runs on the browser's clock; the server only tells us when a new reload begins and how long is left
+    protected override void OnParametersSet()
+    {
+        if (MsLeft is > 0 && (previous is null or <= 0 || MsLeft > previous))
+        {
+            run++;
+            runMs = MsLeft.Value;
+            startOffset = circumference * Math.Clamp(MsLeft.Value / (double)Math.Max(1, TotalMs), 0, 1);
+        }
+        previous = MsLeft;
+    }
+
+    private string Inv(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+@if (run > 0)
+{
+    <svg @key="run" class="reload-ring" viewBox="0 0 80 80" aria-hidden="true"
+         style="@($"--len: {Inv(circumference)}; --from: {Inv(startOffset)}; --ms: {runMs}ms")">
+        <circle class="ring-track" cx="40" cy="40" r="@radius" />
+        <circle class="ring-fill" cx="40" cy="40" r="@radius" transform="rotate(-90 40 40)" />
+    </svg>
+}

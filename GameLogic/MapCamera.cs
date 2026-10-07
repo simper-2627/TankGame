@@ -10,12 +10,22 @@ public readonly record struct MapCamera(double Scale, double X, double Y)
             ?? living.FirstOrDefault();
     }
 
-    public static MapCamera For(GameMap map, double centerX, double centerY)
+    public static MapCamera For(GameMap map, double centerX, double centerY,
+        double? viewportWidth = null, double? viewportHeight = null)
     {
-        if (map.Mode != MapMode.Foggish)
-            return new(Math.Min((double)map.ViewWidth / map.Width, (double)map.ViewHeight / map.Height), 0, 0);
-        return new(1, Math.Clamp(centerX - map.ViewWidth / 2.0, 0, Math.Max(0, map.Width - map.ViewWidth)),
-            Math.Clamp(centerY - map.ViewHeight / 2.0, 0, Math.Max(0, map.Height - map.ViewHeight)));
+        var width = viewportWidth ?? map.ViewWidth;
+        var height = viewportHeight ?? map.ViewHeight;
+        // Fill the viewport without stretching terrain. Fog matches default Big Map's
+        // 1800 x 1400 viewing area, then follows the tank across its larger world.
+        var scale = map.Mode == MapMode.Foggish
+            ? Math.Max(width / 1800, height / 1400)
+            : Math.Max(width / map.Width, height / map.Height);
+        // Even unusually small maps must cover the entire viewport.
+        scale = Math.Max(scale, Math.Max(width / map.Width, height / map.Height));
+        var visibleWidth = width / scale;
+        var visibleHeight = height / scale;
+        return new(scale, Math.Clamp(centerX - visibleWidth / 2, 0, Math.Max(0, map.Width - visibleWidth)),
+            Math.Clamp(centerY - visibleHeight / 2, 0, Math.Max(0, map.Height - visibleHeight)));
     }
 
     public (int X, int Y) ToWorld(double screenX, double screenY) =>
