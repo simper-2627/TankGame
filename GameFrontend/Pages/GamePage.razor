@@ -21,6 +21,10 @@
       <div class="d-flex flex-wrap align-items-center gap-2">
         <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
         <span>@game.MatchType</span>
+        @if (LocalTank?.Team is int myTeam)
+        {
+          <span>&middot; You're on @Teams.Name(myTeam)</span>
+        }
         @if (game.SecondsLeft is int secondsLeft)
         {
           <span>Time left: @(secondsLeft / 60):@((secondsLeft % 60).ToString("00"))</span>
@@ -29,7 +33,8 @@
       @if (game.Status == GameStatus.Ended)
       {
         <div class="alert alert-info py-2 mb-2">
-          @(game.BotsWon ? "The bots won!"
+          @(game.WinningTeam is int team ? (team == LocalTank?.Team ? "Your team wins!" : $"{Teams.Name(team)} team wins")
+            : game.BotsWon ? "The bots won!"
             : game.WinnerId is null ? "Draw!"
             : game.WinnerId == PlayerId ? "You win!"
             : $"{game.WinnerId.Value.ToString()[^5..]} wins")

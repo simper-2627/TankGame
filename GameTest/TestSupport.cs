@@ -73,7 +73,7 @@ internal static class TestGames
     public static PlayerInputRequest Input(Guid playerId, bool shoot = false, int? aimX = null, int? aimY = null) => new()
     {
         GameName = "test", PlayerId = playerId,
-        Up = false, Down = false, Left = false, Right = false,
+        Up = false, Down = false, Left = false, Right = false, Boost = false,
         Shoot = shoot, AimX = aimX, AimY = aimY,
     };
 
