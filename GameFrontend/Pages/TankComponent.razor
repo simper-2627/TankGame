@@ -54,7 +54,7 @@
 
 @if (tank != null && tank.Respawning)
 {
-    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width:   {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
+    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width:    {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
         @(tank.RespawnTicksLeft > 0 ? $"Respawning in {(tank.RespawnTicksLeft + GameLoopRunner.TicksPerSecond - 1) /
     GameLoopRunner.TicksPerSecond}s" : "Waiting for a safe spawn")
     </div>
@@ -97,10 +97,16 @@ else if (tank != null && !tank.Eliminated)
             <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>
                 <img src=@($"images/PNG/Tanks/tank{color}.png") alt="" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px   {turretPivotY}px; transform: rotate({hullRotation}deg);") />
                 @* Hit flash: a red copy of the sprite's own shape laid over it, so it works for every tank color *@
-                <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top:     {-turretPivotY}px; width: 75px; height: 70px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); {FlashStyle("tank")}") />
+                <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top:        {-turretPivotY}px; width: 75px; height: 70px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); {FlashStyle("tank")}") />
                 <img src=@($"images/PNG/Tanks/barrel{color}.png") alt="" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
                 <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; width: 16px; height: 50px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg); {FlashStyle("barrel")}") />
             </div>
+
+            @if (tank.Shielded)
+            {
+                <div style=@($"position: absolute; inset: -6px; border: 2px dashed #38bdf8; border-radius: 50%; background: transparent; pointer-events: none;")></div>
+            }
+    
             @* After the sprite so it draws over the barrel *@
             <ReloadRing MsLeft="tank.ReloadMsLeft" TotalMs="ReloadMs" />
         </div>

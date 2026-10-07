@@ -43,6 +43,11 @@ public record Tank
     public int HitFlashTicks { get; init; }
     // Destroyed but with lives left: waiting to respawn, can't move, shoot or be hit
     public bool Respawning => Health <= 0 && !Eliminated;
+    // Ticks of post-respawn invincibility; everyone can see Shielded status, but not duration
+    public const int ShieldSeconds = 3;
+    public const int ShieldDurationTicks = ShieldSeconds * Game.GameLoopRunner.TicksPerSecond;
+    public int ShieldTicksLeft { get; init; }
+    public bool Shielded => ShieldTicksLeft > 0;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
     // Game clock time (ms) at which the tank may fire again; 0 = ready

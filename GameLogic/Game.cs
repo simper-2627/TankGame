@@ -143,6 +143,7 @@ public class Game
             RespawnTicksLeft = t.RespawnTicksLeft,
             Flashing = t.HitFlashTicks > 0,
             Boosting = t.Boosting,
+            Shielded = t.Shielded,
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
