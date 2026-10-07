@@ -152,4 +152,32 @@ public class ProjectileTests
         Assert.InRange(blast.FromY, centerY - 3, centerY + 3);
         Assert.True(blast.X > blast.FromX);
     }
+
+    [Fact]
+    public void ShieldedTankTakesNoDamageFromADirectHit()
+    {
+        var shooter = new Tank();
+        var shielded = new Tank { Health = 3, ShieldTicksLeft = Tank.ShieldDurationTicks };
+        var tanks = new List<Tank> { shooter, shielded };
+
+        Combat.ApplyHit(tanks, 1, shooter.Id, new MatchSettings());
+
+        Assert.Equal(3, tanks[1].Health);
+        Assert.Equal(0, tanks[1].HitFlashTicks);
+        Assert.Equal(0, tanks[0].HitsLanded);
+        Assert.True(tanks[1].Shielded);
+    }
+
+    [Fact]
+    public void BulletIsStillConsumedByAShieldedTank()
+    {
+        var shielded = new Tank { Health = 3, ShieldTicksLeft = Tank.ShieldDurationTicks };
+        var area = Tank.GetCollisionArea(shielded, Dev);
+        var bullet = new Bullet { PositionX = area.X, PositionY = area.Y, Angle = 0, OwnerId = Guid.NewGuid() };
+
+        var (tanks, bullets) = Combat.ResolveHits(new[] { shielded }, new[] { bullet }, Dev);
+
+        Assert.Empty(bullets);
+        Assert.Equal(3, tanks[0].Health);
+    }
 }

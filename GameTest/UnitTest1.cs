@@ -12,7 +12,7 @@ public class UnitTest1
         var game = new Game(new TestHubContext());
         var id = game.JoinGame();
         game.ReceiveUserInput(new PlayerInputRequest { GameName = "bullets", PlayerId = id,
-            Up = false, Down = false, Left = false, Right = false, Shoot = true });
+            Up = false, Down = false, Left = false, Right = false, Shoot = true, Boost = false });
         var before = game.GetGameState().Bullets!.Single();
 
         await game.loopRunner.ProcessGameTick();
@@ -84,7 +84,7 @@ public class UnitTest1
         obstacles.Resume.Reset();
         obstacles.Entered.Reset();
         var input = new PlayerInputRequest { GameName = "Concurrent", PlayerId = id,
-            Up = true, Down = false, Left = false, Right = false, Shoot = false };
+            Up = true, Down = false, Left = false, Right = false, Shoot = false, Boost = false };
         game.ReceiveUserInput(input);
         var tick = Task.Run(() => game.loopRunner.ProcessGameTick());
         Task reverse = Task.CompletedTask;
@@ -277,6 +277,7 @@ public class UnitTest1
             Right = false,
             Down = false,
             Shoot = true,
+            Boost = false,
         };
 
         game.ReceiveUserInput(playerInput);
@@ -302,7 +303,7 @@ public class UnitTest1
     {
         GameName = "shooting", PlayerId = playerId,
         Up = false, Down = false, Left = false, Right = false,
-        Shoot = shoot, AimX = aimX, AimY = aimY,
+        Shoot = shoot, Boost = false, AimX = aimX, AimY = aimY,
     };
 
     [Fact]

@@ -74,7 +74,7 @@ internal static class TestGames
     {
         GameName = "test", PlayerId = playerId,
         Up = false, Down = false, Left = false, Right = false,
-        Shoot = shoot, AimX = aimX, AimY = aimY,
+        Shoot = shoot, Boost = false, AimX = aimX, AimY = aimY,
     };
 
     // Aim at the target's center, then press fire (release first so it counts as a new press)
