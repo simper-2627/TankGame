@@ -62,6 +62,7 @@ public record TankState
     public int TurretAngle { get; init; }
     // Private while the tank is alive: only its owner (and everyone, once the match ends) gets the number
     public int? Health { get; init; }
+    public int? BoostEnergy { get; init; }
     public bool Eliminated { get; init; }
     // Private like Health
     public int? Deaths { get; init; }
