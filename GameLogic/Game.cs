@@ -19,6 +19,8 @@ public class Game
     // Null while playing, and also when an ended match is a draw
     public Guid? WinnerId { get; private set; }
     public bool BotsWon { get; private set; }
+    // Set when a team match ends with a winning team
+    public int? WinningTeam { get; private set; }
     // Game loop ticks processed so far (10 per second)
     public int Tick { get; internal set; }
     // Tick when the 2nd player joined; the time limit counts from here
@@ -85,7 +87,10 @@ public class Game
     {
         return new()
         {
-            Tick = Tick, ServerWorkMs = ServerWorkMs, ServerIntervalMs = ServerIntervalMs, ServerBroadcastMs = ServerBroadcastMs,
+            Tick = Tick,
+            ServerWorkMs = ServerWorkMs,
+            ServerIntervalMs = ServerIntervalMs,
+            ServerBroadcastMs = ServerBroadcastMs,
             Status = Status,
             Name = Name,
             MatchType = MatchType,
@@ -94,6 +99,7 @@ public class Game
             CreatorId = CreatorId,
             WinnerId = WinnerId,
             BotsWon = BotsWon,
+            WinningTeam = WinningTeam,
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
@@ -127,6 +133,7 @@ public class Game
             Id = t.Id,
             Name = t.Name,
             IsBot = t.IsBot,
+            Team = t.Team,
             BotState = MatchType == GameMatchTypes.DeveloperSimulation && botBrains.TryGetValue(t.Id, out var brain)
                 ? brain.State.ToString().ToUpperInvariant()
                 : null,
@@ -224,6 +231,9 @@ public class Game
     private Guid AddTank(string? playerName, bool isBot)
     {
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
+        // Humans join whichever team is smaller; bots stay teamless and attack everyone
+        int team1Count = Tanks.Count(t => t.Team == 1);
+        int team2Count = Tanks.Count(t => t.Team == 2);
         var newTank = new Tank
         {
             Name = string.IsNullOrWhiteSpace(playerName)
@@ -234,7 +244,10 @@ public class Game
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,
             TurretAngle = spawnPoint?.Angle ?? 0,
-            Health = spawnPoint is null ? 0 : Settings.Health
+            Health = spawnPoint is null ? 0 : Settings.Health,
+            Team = Settings.Mode == GameMode.TeamElimination && !isBot
+                ? (team1Count <= team2Count ? 1 : 2)
+                : null,
         };
         Tanks = Tanks.Append(newTank);
         if (isBot)
@@ -270,57 +283,56 @@ public class Game
     {
         lock (StateLock)
         {
-        if (Status == GameStatus.Ended)
-            return false;
+            if (Status == GameStatus.Ended)
+                return false;
 
-        Tank? instantShooter = null;
-        Tanks = Tanks.Select(t =>
-        {
-            // Eliminated (or respawning) players keep watching but can't drive or shoot
-            if (t.Id == request.PlayerId && !t.Eliminated && !t.Respawning)
+            Tank? instantShooter = null;
+            Tanks = Tanks.Select(t =>
             {
-
-                var updatedTank = t with
+                // Eliminated (or respawning) players keep watching but can't drive or shoot
+                if (t.Id == request.PlayerId && !t.Eliminated && !t.Respawning)
                 {
-                    InputSequence = request.InputSequence,
-                    MovingUp = request.Up,
-                    MovingLeft = request.Left,
-                    MovingRight = request.Right,
-                    Shooting = request.Shoot,
-                    MovingDown = request.Down,
-                    BoostHeld = request.Boost,
-                    AimX = request.AimX ?? t.AimX,
-                    AimY = request.AimY ?? t.AimY,
-                };
-                updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
+                    var updatedTank = t with
+                    {
+                        InputSequence = request.InputSequence,
+                        MovingUp = request.Up,
+                        MovingLeft = request.Left,
+                        MovingRight = request.Right,
+                        Shooting = request.Shoot,
+                        MovingDown = request.Down,
+                        BoostHeld = request.Boost,
+                        AimX = request.AimX ?? t.AimX,
+                        AimY = request.AimY ?? t.AimY,
+                    };
+                    updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
 
-                // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
-                var now = Clock();
-                if (updatedTank.Shooting && !t.Shooting && now >= t.NextShotAtMs)
-                {
-                    if (Settings.Projectile == ProjectileType.Realistic)
-                        instantShooter = updatedTank;
-                    else
-                        Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
-                    updatedTank = updatedTank with { NextShotAtMs = now + Settings.ReloadMs };
+                    // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
+                    var now = Clock();
+                    if (updatedTank.Shooting && !t.Shooting && now >= t.NextShotAtMs)
+                    {
+                        if (Settings.Projectile == ProjectileType.Realistic)
+                            instantShooter = updatedTank;
+                        else
+                            Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
+                        updatedTank = updatedTank with { NextShotAtMs = now + Settings.ReloadMs };
+                    }
+
+                    //if (updatedTank.Bullet != null)
+                    //{
+                    //    updatedTank = updatedTank with
+                    //    {
+                    //        Bullet = Bullet.MoveBullet(updatedTank)
+                    //    };
+                    //}
+                    return updatedTank;
                 }
+                return t;
+            })
+            .ToArray();
 
-                //if (updatedTank.Bullet != null)
-                //{
-                //    updatedTank = updatedTank with
-                //    {
-                //        Bullet = Bullet.MoveBullet(updatedTank)
-                //    };
-                //}
-                return updatedTank;
-            }
-            return t;
-        })
-        .ToArray();
-
-        if (instantShooter is not null)
-            FireInstantShot(instantShooter);
-        return instantShooter is not null;
+            if (instantShooter is not null)
+                FireInstantShot(instantShooter);
+            return instantShooter is not null;
         }
     }
 
@@ -394,6 +406,7 @@ public class Game
         Status = GameStatus.Ended;
         WinnerId = result.WinnerId;
         BotsWon = result.BotsWon;
+        WinningTeam = result.WinningTeam;
     }
 
 }

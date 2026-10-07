@@ -29,7 +29,7 @@
 
     protected override void OnParametersSet()
     {
-        color = TankPalette.TankColor(tank.Id, tank.IsBot);
+        color = TankPalette.TankColor(tank.Id, tank.IsBot, tank.Team);
         hullRotation = ShortestRotation(hullRotation, tank.Angle + spriteFacingOffset);
         turretRotation = ShortestRotation(turretRotation, tank.TurretAngle + spriteFacingOffset);
     }

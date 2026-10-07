@@ -235,6 +235,21 @@
               <p>How much punishment a tank can take, and how long the fight lasts.</p>
             </div>
             <div class="field">
+              <span class="field-label">Game mode</span>
+              <div class="choice-cards two">
+                <button type="button" class="choice-card @(gameMode == GameMode.FreeForAll ? "is-selected" : "")" @onclick="() => gameMode = GameMode.FreeForAll">
+                  <span class="choice-icon">⚔</span>
+                  <span class="choice-name">@GameMode.FreeForAll.Label()</span>
+                  <span class="choice-desc">Every tank for itself. Last one standing wins.</span>
+                </button>
+                <button type="button" class="choice-card @(gameMode == GameMode.TeamElimination ? "is-selected" : "")" @onclick="() => gameMode = GameMode.TeamElimination">
+                  <span class="choice-icon">🛡</span>
+                  <span class="choice-name">@GameMode.TeamElimination.Label()</span>
+                  <span class="choice-desc">Blue vs Green, balanced as players join. Friendly fire is on.</span>
+                </button>
+              </div>
+            </div>
+            <div class="field">
               <span class="field-label">Health <span class="field-value">@health hit@(health == 1 ? "" : "s") to eliminate</span></span>
               <div class="pips">
                 @for (var hits = MatchSettings.MinHealth; hits <= MatchSettings.MaxHealth; hits++)
@@ -341,7 +356,7 @@
                 </button>
                 <button type="button" class="briefing-section" @onclick="() => GoTo(3)">
                   <span class="briefing-head">Rules <span class="edit">Edit</span></span>
-                  <span>@health HP · @lives li@(lives == 1 ? "fe" : "ves") · respawn @(respawnSeconds) s</span>
+                  <span>@gameMode.Label() · @health HP · @lives li@(lives == 1 ? "fe" : "ves") · respawn @(respawnSeconds) s</span>
                   <span>Time limit: @(timeLimitMinutes == 0 ? "off" : $"{timeLimitMinutes} min")</span>
                   @if (selectedMatchType != GameMatchTypes.DeveloperSimulation && botCount > 0)
                   {
@@ -425,13 +440,15 @@
             <h3 class="battle-name" title="@game.Name">@game.Name</h3>
             <div class="battle-sub">@(game.Map?.Name) &middot; @ModeLabel(game.Map?.Mode ?? MapMode.BigMap) &middot; @game.MatchType</div>
             <div class="battle-players" title="@tankCount player@(tankCount == 1 ? "" : "s")">
-              @for (var i = 0; i < Math.Min(tankCount, 8); i++)
+              @foreach (var tank in (game.Tanks ?? []).Take(8))
               {
-                <img src="images/PNG/Tanks/@(TankColors[i % TankColors.Length]).png" alt="" />
+                @* Same colour the tank has on the battlefield: its team in team games, red for bots *@
+                <img src="images/PNG/Tanks/tank@(TankPalette.TankColor(tank.Id, tank.IsBot, tank.Team)).png" alt="" />
               }
               <span>@tankCount/@(game.Map?.MaxPlayers ?? 8) players</span>
             </div>
             <ul class="chips">
+              <li>@(settings.Mode == GameMode.TeamElimination ? "🛡" : "⚔") @settings.Mode.Label()</li>
               <li>❤ @settings.Health HP</li>
               <li>↻ @settings.Lives li@(settings.Lives == 1 ? "fe" : "ves") · @settings.RespawnSeconds s</li>
               <li>
@@ -479,7 +496,6 @@
   public void Dispose() { foreach (var subscription in subscriptions) subscription.Dispose(); }
 
   private static readonly string[] steps = ["Mission", "Battlefield", "Loadout", "Rules", "Deploy"];
-  private static readonly string[] TankColors = ["tankGreen", "tankBlue", "tankBeige", "tankBlack"];
   private static readonly string[] NameAdjectives = ["Iron", "Steel", "Crimson", "Thunder", "Dust", "Rolling", "Silent", "Scorched", "Midnight", "Rusty"];
   private static readonly string[] NameNouns = ["Viper", "Storm", "Hammer", "Rhino", "Anvil", "Fury", "Badger", "Tread", "Cyclone", "Bastion"];
   private int LastStep => steps.Length - 1;
@@ -533,6 +549,7 @@
   private int respawnSeconds = new MatchSettings().RespawnSeconds;
   private double speedMultiplier = new MatchSettings().SpeedMultiplier;
   private int timeLimitMinutes = new MatchSettings().TimeLimitMinutes;
+  private GameMode gameMode = new MatchSettings().Mode;
 
   private IEnumerable<GameState> games = [];
   private int liveGames => games.Count(g => g.Status != GameStatus.Ended);
@@ -658,7 +675,8 @@
       TimeLimitMinutes = timeLimitMinutes,
       BotCount = selectedMatchType == GameMatchTypes.DeveloperSimulation ? 0 : botCount,
       BotDifficulty = botDifficulty,
-      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && clearBotsToWin
+      ClearBotsToWin = selectedMatchType == GameMatchTypes.Multiplayer && clearBotsToWin,
+      Mode = gameMode
     };
     try
     {

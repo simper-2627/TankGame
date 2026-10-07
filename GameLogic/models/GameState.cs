@@ -17,6 +17,7 @@ public record GameState
     public Guid? WinnerId { get; init; }
     // The bots won (every human is out, or time ran out in single player); WinnerId is null then
     public bool BotsWon { get; init; }
+    public int? WinningTeam { get; init; }
     // Null when there's no time limit or it hasn't started
     public int? SecondsLeft { get; init; }
     public GameMap? Map { get; init; }
@@ -56,6 +57,7 @@ public record TankState
     public bool IsBot { get; init; }
     // What the bot is doing (SEEK, ATTACK, ...); only sent in Developer simulation, where it's drawn above the tank
     public string? BotState { get; init; }
+    public int? Team { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }

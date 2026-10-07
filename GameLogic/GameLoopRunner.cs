@@ -73,7 +73,8 @@ public class GameLoopRunner
             }
             game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);
             game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft,
-                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin));
+                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin,
+                mode: game.Settings.Mode));
         }
         }
 
