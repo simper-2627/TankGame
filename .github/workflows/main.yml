@@ -3,10 +3,34 @@ name: deploy
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
     runs-on: self-hosted
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        run: dotnet build BackendApiWasmDemo.sln
+
+  test:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test
+        run: dotnet test BackendApiWasmDemo.sln
+
+  push-image:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    needs: [build, test]
     permissions:
       contents: read
 
@@ -17,15 +41,15 @@ jobs:
         with:
           username: ${{ secrets.docker_username }}
           password: ${{ secrets.docker_password }}
-      - name: Building
+      - name: Build and push image
         run: |
           docker build -f ./GameApi/Dockerfile -t ${{ secrets.docker_username}}/tankgame:${{ github.sha }} .
           docker push ${{ secrets.docker_username }}/tankgame:${{ github.sha }}
 
-# of course. How could I have missed that???
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
-    needs: [build]
+    needs: [push-image]
     env:
       GITHUB_SHA: ${{ github.sha }}
       NAMESPACE: tankgame
