@@ -22,14 +22,9 @@ spec:
       labels:
         app: tankgame
     spec:
-      terminationGracePeriodSeconds: 630
       containers:
         - name: api
           image: dharryc/tankgame:$GITHUB_SHA
-          lifecycle:
-            preStop:
-              exec:
-                command: ["sleep", "600"]
           ports:
             - containerPort: 8080
           readinessProbe:
