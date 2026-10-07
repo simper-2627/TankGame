@@ -22,7 +22,7 @@ jobs:
           docker build -f ./GameApi/Dockerfile -t ${{ secrets.docker_username}}/tankgame:${{ github.sha }} .
           docker push ${{ secrets.docker_username }}/tankgame:${{ github.sha }}
 
-# making a change to test thingssss
+# of course. How could I have missed that???
   deploy:
     runs-on: self-hosted
     needs: [build]
