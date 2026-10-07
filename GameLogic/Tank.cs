@@ -4,6 +4,7 @@ public record Tank
 {
     public long InputSequence { get; init; }
     public const int Size = 60;
+    public int? Team { get; init; }
     public Guid Id { get; } = Guid.NewGuid();
     public string Name { get; init; } = "";
     // Computer-controlled; public to everyone so the screen can draw bots in red

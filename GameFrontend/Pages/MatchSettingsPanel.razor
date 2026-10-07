@@ -101,7 +101,7 @@
   else
   {
     <p class="small text-muted mb-0">
-      Locked: health @Settings.Health, lives @Settings.Lives,
+      Locked: @Settings.Mode.Label(), health @Settings.Health, lives @Settings.Lives,
       time limit @(Settings.TimeLimitMinutes == 0 ? "off" : $"{Settings.TimeLimitMinutes} min")
     </p>
   }

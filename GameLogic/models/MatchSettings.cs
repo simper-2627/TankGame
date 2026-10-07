@@ -17,6 +17,27 @@ public enum ProjectileType
     Realistic,
 }
 
+public enum GameMode
+{
+    FreeForAll,
+    TeamElimination,
+}
+
+public static class GameModeExtensions
+{
+    public static string Label(this GameMode mode) => mode switch
+    {
+        GameMode.TeamElimination => "Teams",
+        _ => "Free for all",
+    };
+}
+
+public static class Teams
+{
+    // Teams are numbered 1 and 2; the name doubles as the tank sprite colour. Red is left for bots
+    public static string Name(int team) => team == 1 ? "Blue" : "Green";
+}
+
 // Match rules the creator picks; they apply to every player in the match
 public record MatchSettings
 {
@@ -39,6 +60,7 @@ public record MatchSettings
     public static readonly double[] SpeedChoices = [0.5, 0.75, 1, 1.25, 1.5, 2];
     // 0 = no time limit
     public static readonly int[] TimeLimitChoices = [0, 1, 2, 3, 5, 10];
+    public GameMode Mode { get; init; } = GameMode.FreeForAll;
 
     // Milliseconds before a tank can fire again after a shot
     public int ReloadMs { get; init; } = DefaultReloadMs;
@@ -63,6 +85,7 @@ public record MatchSettings
     public static MatchSettings Sanitize(MatchSettings incoming) => new()
     {
         ReloadMs = Math.Clamp(incoming.ReloadMs, MinReloadMs, MaxReloadMs),
+        Mode = Enum.IsDefined(incoming.Mode) ? incoming.Mode : GameMode.FreeForAll,
         Projectile = Enum.IsDefined(incoming.Projectile) ? incoming.Projectile : ProjectileType.DumbBubbles,
         BulletSpeed = BulletSpeedChoices.MinBy(choice => Math.Abs((long)choice - incoming.BulletSpeed)),
         MaxBounces = Math.Clamp(incoming.MaxBounces, 0, MaxBouncesAllowed),
@@ -84,7 +107,8 @@ public record MatchSettings
         this with
         {
             Health = current.Health, Lives = current.Lives, TimeLimitMinutes = current.TimeLimitMinutes,
-            BotCount = current.BotCount, ClearBotsToWin = current.ClearBotsToWin
+            BotCount = current.BotCount, ClearBotsToWin = current.ClearBotsToWin,
+            Mode = current.Mode
         };
 
     // Tank speed scales top speed and acceleration together so handling feels the same; turning is unchanged
