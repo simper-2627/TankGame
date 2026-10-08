@@ -448,7 +448,7 @@
   // Dev simulation only: another tank to shoot at (it just sits at its spawn point)
   private async Task AddTargetTank()
   {
-    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "")!;
+    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "", (TankAppearance?)null)!;
   }
 
   // Dev simulation only: a computer tank that uses the match's bot difficulty
