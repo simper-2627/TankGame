@@ -443,7 +443,8 @@
               @foreach (var tank in (game.Tanks ?? []).Take(8))
               {
                 @* Same colour the tank has on the battlefield: its team in team games, red for bots *@
-                <img src="images/PNG/Tanks/tank@(TankPalette.TankColor(tank.Id, tank.IsBot, tank.Team)).png" alt="" />
+                var cardSwatch = TankPalette.For(TankLook.Resolve(tank).Hull);
+                <img src="images/PNG/Tanks/tank@(cardSwatch.Sprite).png" style="filter: @cardSwatch.Filter;" alt="" />
               }
               <span>@tankCount/@(game.Map?.MaxPlayers ?? 8) players</span>
             </div>
