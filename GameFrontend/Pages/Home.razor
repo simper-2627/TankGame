@@ -682,7 +682,7 @@
     {
       // Invoke (not Send) so a server-side rejection comes back as an exception
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim());
+        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim(), (TankAppearance?)null);
     }
     catch (Exception ex)
     {
@@ -699,7 +699,7 @@
     try
     {
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim());
+        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim(), (TankAppearance?)null);
     }
     catch
     {

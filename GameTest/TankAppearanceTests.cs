@@ -69,3 +69,70 @@ public class TankAppearanceTests
         }
     }
 }
+
+public class TankAppearanceJoinTests
+{
+    private static readonly TankAppearance purple = new() { HullColor = "Purple", Pattern = TankPattern.Stripes, Tag = "GG" };
+
+    private static TankState Seen(Game game, Guid tank, Guid? viewer = null) =>
+        game.GetGameState(viewerId: viewer).Tanks!.Single(t => t.Id == tank);
+
+    [Fact]
+    public void ChosenLookIsSentToEveryViewer()
+    {
+        var game = TestGames.NewGame();
+        var me = game.JoinGame("Ben", purple);
+        var other = game.JoinGame();
+
+        Assert.Equal(purple, Seen(game, me, other).Appearance);
+    }
+
+    [Fact]
+    public void BadLookIsCleanedBeforeAnyoneSeesIt()
+    {
+        var game = TestGames.NewGame();
+        var me = game.JoinGame(null, new TankAppearance { HullColor = "Red", BulletColor = "Purple", Tag = "TOOLONG" });
+
+        Assert.Equal(new TankAppearance { BulletColor = "Purple", Tag = "TOOL" }, Seen(game, me).Appearance);
+    }
+
+    [Fact]
+    public void NoLookSendsNothingExtra()
+    {
+        var game = TestGames.NewGame();
+        var me = game.JoinGame();
+
+        Assert.Null(Seen(game, me).Appearance);
+    }
+
+    [Fact]
+    public void LookThatCleansToDefaultSendsNothingExtra()
+    {
+        var game = TestGames.NewGame();
+        var me = game.JoinGame(null, new TankAppearance { HullColor = "Red", Tag = "   " });
+
+        Assert.Null(Seen(game, me).Appearance);
+    }
+
+    [Fact]
+    public void BotsNeverCarryALook()
+    {
+        var game = TestGames.NewGame(new MatchSettings { BotCount = 2 }, matchType: GameMatchTypes.Bots);
+        game.JoinGame(null, purple);
+
+        var bots = game.GetGameState().Tanks!.Where(t => t.IsBot).ToArray();
+        Assert.Equal(2, bots.Length);
+        Assert.All(bots, bot => Assert.Null(bot.Appearance));
+    }
+
+    [Fact]
+    public void TeamMatchStillSendsTheLookSoPatternAndTagCanBeDrawn()
+    {
+        var game = TestGames.NewGame(new MatchSettings { Mode = GameMode.TeamElimination });
+        var me = game.JoinGame(null, purple);
+
+        var seen = Seen(game, me);
+        Assert.NotNull(seen.Team);
+        Assert.Equal(purple, seen.Appearance);
+    }
+}
