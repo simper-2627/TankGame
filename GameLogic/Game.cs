@@ -132,6 +132,7 @@ public class Game
         {
             Id = t.Id,
             Name = t.Name,
+            Appearance = t.Appearance == TankAppearance.Default ? null : t.Appearance,
             IsBot = t.IsBot,
             Team = t.Team,
             BotState = MatchType == GameMatchTypes.DeveloperSimulation && botBrains.TryGetValue(t.Id, out var brain)
@@ -201,7 +202,7 @@ public class Game
     }
 
     // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
-    public Guid JoinGame(string? playerName = null)
+    public Guid JoinGame(string? playerName = null, TankAppearance? appearance = null)
     {
         lock (StateLock)
         {
@@ -213,7 +214,7 @@ public class Game
             if (Tanks.Count() >= Map.MaxPlayers)
                 throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
 
-            var id = AddTank(playerName, isBot: false);
+            var id = AddTank(playerName, isBot: false, appearance);
             CreatorId ??= id;
             // Bots arrive with the creator in single player and with the 2nd human in multiplayer; until then nobody
             // would be fighting them. Their seats come out of the same limit as everyone's, so humans can't take them
@@ -228,7 +229,7 @@ public class Game
     }
 
     // Caller holds StateLock. No free spawn point means the tank waits, like a respawn
-    private Guid AddTank(string? playerName, bool isBot)
+    private Guid AddTank(string? playerName, bool isBot, TankAppearance? appearance = null)
     {
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         // Humans join whichever team is smaller; bots stay teamless and attack everyone
@@ -240,6 +241,7 @@ public class Game
                 ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
                 : playerName.Trim(),
             IsBot = isBot,
+            Appearance = isBot ? TankAppearance.Default : (appearance ?? TankAppearance.Default).Sanitize(),
             PositionX = spawnPoint?.X ?? 0,
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,

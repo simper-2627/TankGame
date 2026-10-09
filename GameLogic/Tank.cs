@@ -7,6 +7,8 @@ public record Tank
     public int? Team { get; init; }
     public Guid Id { get; } = Guid.NewGuid();
     public string Name { get; init; } = "";
+    // Already sanitized; bots always have the default
+    public TankAppearance Appearance { get; init; } = TankAppearance.Default;
     // Computer-controlled; public to everyone so the screen can draw bots in red
     public bool IsBot { get; init; }
     public int PositionY { get; init; } = 50;

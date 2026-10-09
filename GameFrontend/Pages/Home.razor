@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using System.Text.Json
 @inject SignalRService signalR;
+@inject IJSRuntime JS
 
 <PageTitle>Tanks · Command Center</PageTitle>
 
@@ -74,6 +75,7 @@
                @bind=playerName @bind:event="oninput" />
       </div>
     </label>
+    <TankCustomizer Value="appearance" ValueChanged="OnAppearanceChanged" PlayerName="@playerName" />
   </section>
 
   <section class="panel deploy-panel">
@@ -443,7 +445,8 @@
               @foreach (var tank in (game.Tanks ?? []).Take(8))
               {
                 @* Same colour the tank has on the battlefield: its team in team games, red for bots *@
-                <img src="images/PNG/Tanks/tank@(TankPalette.TankColor(tank.Id, tank.IsBot, tank.Team)).png" alt="" />
+                var cardSwatch = TankPalette.For(TankLook.Resolve(tank).Hull);
+                <img src="images/PNG/Tanks/tank@(cardSwatch.Sprite).png" style="filter: @cardSwatch.Filter;" alt="" />
               }
               <span>@tankCount/@(game.Map?.MaxPlayers ?? 8) players</span>
             </div>
@@ -509,6 +512,40 @@
   private string userInputGameName = "";
   // Static so it survives leaving a game and coming back to the lobby
   private static string playerName = "";
+  // Static like playerName; read from the browser once per visit and written back on every change
+  private static TankAppearance appearance = TankAppearance.Default;
+  private static bool appearanceLoaded;
+  private const string appearanceKey = "tankAppearance";
+
+  private async Task LoadAppearance()
+  {
+    if (appearanceLoaded) return;
+    appearanceLoaded = true;
+    // Blocked storage or an old/corrupt value just means the default look
+    try
+    {
+      var json = await JS.InvokeAsync<string?>("localStorage.getItem", appearanceKey);
+      if (json is not null)
+        appearance = (JsonSerializer.Deserialize<TankAppearance>(json) ?? TankAppearance.Default).Sanitize();
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"Couldn't load the saved tank look: {ex.Message}");
+    }
+  }
+
+  private async Task OnAppearanceChanged(TankAppearance value)
+  {
+    appearance = value;
+    try
+    {
+      await JS.InvokeVoidAsync("localStorage.setItem", appearanceKey, JsonSerializer.Serialize(value));
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine($"Couldn't save the tank look: {ex.Message}");
+    }
+  }
   private MapMode selectedMode = MapMode.BigMap;
   private string? joinError;
   private static string ModeLabel(MapMode mode) => mode == MapMode.BigMap ? "Big Map" : mode.ToString();
@@ -578,6 +615,7 @@
 
   protected override async Task OnInitializedAsync()
   {
+    await LoadAppearance();
     await signalR.EnsureConnected();
 
     subscriptions.Add(signalR.HubConnection!.On<IEnumerable<GameState>>(Messages.GameList, (newGames) => {
@@ -682,7 +720,7 @@
     {
       // Invoke (not Send) so a server-side rejection comes back as an exception
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim());
+        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim(), appearance);
     }
     catch (Exception ex)
     {
@@ -699,7 +737,7 @@
     try
     {
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim());
+        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim(), appearance);
     }
     catch
     {
