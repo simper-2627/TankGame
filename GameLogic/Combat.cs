@@ -34,7 +34,7 @@ public static class Combat
         return (tankList.ToArray(), flying.ToArray());
     }
 
-    // One hit: 1 health off the target, credited to the shooter
+    // One hit: 1 health off the target, credited to the shooter (and a kill if it was the last health)
     public static void ApplyHit(List<Tank> tankList, int targetIndex, Guid shooterId, MatchSettings match)
     {
         var target = tankList[targetIndex];
@@ -44,7 +44,11 @@ public static class Combat
         // Shooting yourself with a bounce doesn't count as a hit landed
         var shooterIndex = tankList.FindIndex(tank => tank.Id == shooterId);
         if (shooterIndex >= 0 && shooterId != target.Id)
-            tankList[shooterIndex] = tankList[shooterIndex] with { HitsLanded = tankList[shooterIndex].HitsLanded + 1 };
+            tankList[shooterIndex] = tankList[shooterIndex] with
+            {
+                HitsLanded = tankList[shooterIndex].HitsLanded + 1,
+                Kills = tankList[shooterIndex].Kills + (health == 0 ? 1 : 0),
+            };
     }
 
     // Instant shot: walk from the muzzle along the turret until something solid is met.

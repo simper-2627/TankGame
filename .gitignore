@@ -485,3 +485,4 @@ $RECYCLE.BIN/
 
 # Local development server and verification logs
 .runlogs/
+.superpowers/

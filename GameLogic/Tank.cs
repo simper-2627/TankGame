@@ -46,6 +46,8 @@ public record Tank
     public bool Respawning => Health <= 0 && !Eliminated;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
+    // Tanks this one has destroyed (not counting itself); paid out as currency
+    public int Kills { get; init; }
     // Game clock time (ms) at which the tank may fire again; 0 = ready
     public long NextShotAtMs { get; init; }
     //public Bullet Bullet { get; set; } = new();
