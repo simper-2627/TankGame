@@ -208,20 +208,28 @@ public class Game
     }
 
     // A blank name (quick join, or no name set) gets a generated one that no one else in the game has.
-    // A profile id makes the tank earn currency for that profile; a profile can only have one tank per game
+    // A profile id makes the tank earn currency for that profile. A profile has one tank per game: joining again
+    // (back from the lobby, a refresh) returns that tank and starts its clock again
     public Guid JoinGame(string? playerName = null, Guid? profileId = null)
     {
         lock (StateLock)
         {
             if (Status == GameStatus.Ended)
                 throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+            if (profileId is { } returning)
+            {
+                var owned = profileByTank.Where(entry => entry.Value == returning).Select(entry => (Guid?)entry.Key).FirstOrDefault();
+                if (owned is { } existingTank)
+                {
+                    Tracker.Resume(existingTank);
+                    return existingTank;
+                }
+            }
             // A match with bots is the creator's alone; the bots fill the other seats
             if (MatchType == GameMatchTypes.Bots && HumanCount >= 1)
                 throw new InvalidOperationException($"cannot join game, it is single player: {Name}");
             if (Tanks.Count() >= Map.MaxPlayers)
                 throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
-            if (profileId is { } taken && profileByTank.ContainsValue(taken))
-                throw new InvalidOperationException($"cannot join game, this profile is already playing in it: {Name}");
 
             var id = AddTank(playerName, isBot: false);
             if (profileId is { } profile)
@@ -242,9 +250,21 @@ public class Game
         }
     }
 
-    // With a tank id: that player is leaving, so pay what they have earned and stop their clock.
+    // A connection watching this tank went away. Pay what the player has earned, and stop their clock only if nothing
+    // else is watching the tank: a refresh or reconnect may already have subscribed again before the old connection is noticed gone
+    public Task PlayerLeftAsync(Guid tankId) =>
+        PayOutAsync(tankId, stopClock: !ConnectedClients.Values.Any(watching => watching == tankId));
+
+    // A connection is watching this tank again (reconnect, refresh): its time counts again
+    public void ResumeEarning(Guid tankId)
+    {
+        lock (StateLock)
+            Tracker.Resume(tankId);
+    }
+
+    // With a tank id: that player is leaving, so pay what they have earned (and stop their clock unless told not to).
     // Without: the match is over, pay everyone (once). Paying again never repeats a payout
-    public async Task PayOutAsync(Guid? tankId = null)
+    public async Task PayOutAsync(Guid? tankId = null, bool stopClock = true)
     {
         if (ProfileStore is null)
             return;
@@ -265,7 +285,7 @@ public class Game
                 if (!profileByTank.TryGetValue(tank.Id, out var profileId))
                     continue;
                 var earned = Tracker.Flush(tank);
-                if (tankId is not null)
+                if (tankId is not null && stopClock)
                     Tracker.Stop(tank.Id);
                 if (!earned.IsEmpty)
                     due.Add((profileId, earned));

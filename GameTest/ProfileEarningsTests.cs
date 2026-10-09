@@ -114,15 +114,93 @@ public class ProfileEarningsTests
     }
 
     [Fact]
-    public async Task OneProfileCannotHaveTwoTanksInTheSameGame()
+    public async Task JoiningAgainWithTheSameProfileReturnsTheSameTank()
     {
         var store = new InMemoryProfileStore();
         var profile = await store.CreateAsync();
         var game = TestGames.NewGame(profileStore: store);
-        game.JoinGame("A", profile.Id);
+        var first = game.JoinGame("A", profile.Id);
 
-        Assert.Throws<InvalidOperationException>(() => game.JoinGame("A again", profile.Id));
+        var again = game.JoinGame("A again", profile.Id);
+
+        Assert.Equal(first, again);
         Assert.Single(game.Tanks);
+    }
+
+    private static async Task Ticks(Game game, int count)
+    {
+        for (var i = 0; i < count; i++)
+            await game.loopRunner.ProcessGameTick();
+    }
+
+    // Two humans so the match is on; returns the profiled player's tank
+    private static async Task<(Game Game, InMemoryProfileStore Store, Profile Profile, Guid Tank)> RunningMatch()
+    {
+        var store = new InMemoryProfileStore();
+        var profile = await store.CreateAsync();
+        var game = TestGames.NewGame(profileStore: store);
+        var tank = game.JoinGame("A", profile.Id);
+        game.JoinGame("B");
+        return (game, store, profile, tank);
+    }
+
+    [Fact]
+    public async Task RejoiningAfterLeavingStartsTheClockAgain()
+    {
+        var (game, store, profile, tank) = await RunningMatch();
+        await Ticks(game, 100);
+        await game.PayOutAsync(tank);
+
+        game.JoinGame("A", profile.Id);
+        await Ticks(game, 100);
+        await game.PayOutAsync(tank);
+
+        Assert.Equal(20, (await store.GetAsync(profile.Id))!.SecondsPlayed);
+    }
+
+    [Fact]
+    public async Task ResumingAfterLeavingStartsTheClockAgain()
+    {
+        var (game, store, profile, tank) = await RunningMatch();
+        await Ticks(game, 100);
+        await game.PayOutAsync(tank);
+
+        game.ResumeEarning(tank);
+        await Ticks(game, 100);
+        await game.PayOutAsync(tank);
+
+        Assert.Equal(20, (await store.GetAsync(profile.Id))!.SecondsPlayed);
+    }
+
+    [Fact]
+    public async Task AnOldConnectionLeavingAfterTheNewOneSubscribedKeepsTheClockRunning()
+    {
+        var (game, store, profile, tank) = await RunningMatch();
+        game.ConnectedClients["old"] = tank;
+        game.ConnectedClients["new"] = tank;
+        await Ticks(game, 100);
+
+        game.ConnectedClients.TryRemove("old", out _);
+        await game.PlayerLeftAsync(tank);
+        await Ticks(game, 100);
+        await game.PayOutAsync(tank);
+
+        Assert.Equal(20, (await store.GetAsync(profile.Id))!.SecondsPlayed);
+    }
+
+    [Fact]
+    public async Task TheLastConnectionLeavingStopsTheClock()
+    {
+        var (game, store, profile, tank) = await RunningMatch();
+        game.ConnectedClients["only"] = tank;
+        await Ticks(game, 100);
+
+        game.ConnectedClients.TryRemove("only", out _);
+        await game.PlayerLeftAsync(tank);
+        await Ticks(game, 100);
+        await game.PayOutAsync(tank);
+
+        Assert.Equal(10, (await store.GetAsync(profile.Id))!.SecondsPlayed);
     }
 
     [Fact]
@@ -179,6 +257,16 @@ public class LobbyProfileTests
 
         Assert.Null(name);
         Assert.Null(profileId);
+    }
+
+    [Fact]
+    public void DeveloperSimulationGamesPayNobody()
+    {
+        var lobby = new Lobby(new FakeHubContext());
+
+        var game = lobby.CreateGame("sandbox", matchType: GameMatchTypes.DeveloperSimulation);
+
+        Assert.Null(game.ProfileStore);
     }
 
     [Fact]

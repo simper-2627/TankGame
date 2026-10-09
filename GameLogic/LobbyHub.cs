@@ -88,6 +88,8 @@ public class LobbyHub : Hub
     // Deliver immutable map data once, before enrolling this connection in live updates.
     await game.SendInitialUpdate(Context.ConnectionId, playerId);
     game.ConnectedClients[Context.ConnectionId] = playerId;
+    if (playerId is { } id)
+      game.ResumeEarning(id);
 
   }
 
@@ -95,7 +97,7 @@ public class LobbyHub : Hub
   {
     var game = lobby.Games.FirstOrDefault(g => g.Name == gameName);
     if (game is not null && game.ConnectedClients.TryRemove(Context.ConnectionId, out var playerId) && playerId is { } id)
-      await game.PayOutAsync(id);
+      await game.PlayerLeftAsync(id);
   }
 
   public async Task PlayerInput(PlayerInputRequest request)
@@ -142,7 +144,7 @@ public class LobbyHub : Hub
       {
         Console.WriteLine($"Removed connection: {connectionId} from game {game.Name}");
         if (playerId is { } id)
-          await game.PayOutAsync(id);
+          await game.PlayerLeftAsync(id);
       }
     }
     await base.OnDisconnectedAsync(exception);

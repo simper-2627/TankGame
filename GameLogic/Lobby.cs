@@ -46,7 +46,8 @@ public class Lobby
       MatchType = type,
       Map = map,
       Settings = chosen,
-      ProfileStore = Profiles
+      // The developer sandbox lets one player add targets and set health to 1, so it must not pay out
+      ProfileStore = type == GameMatchTypes.DeveloperSimulation ? null : Profiles
     };
 
     Games.Add(newGame);

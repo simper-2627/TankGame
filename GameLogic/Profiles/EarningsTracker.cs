@@ -35,6 +35,13 @@ public class EarningsTracker(CurrencyRates rates, int ticksPerSecond)
             entry.Active = false;
     }
 
+    // The player is back (reconnected or rejoined): time counts again
+    public void Resume(Guid tankId)
+    {
+        if (entries.TryGetValue(tankId, out var entry))
+            entry.Active = true;
+    }
+
     public Earnings Flush(Tank tank)
     {
         if (!entries.TryGetValue(tank.Id, out var entry))
