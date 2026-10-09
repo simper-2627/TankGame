@@ -35,6 +35,7 @@ header span { color: #a6bcb4; font-size: .85rem; }
 .expanded-map ::deep .fog-map { display: block; width: 100%; height: min(68dvh, 900px); background: #080f14; }
 footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; padding-top: 14px; font-size: .8rem; }
 .you { color: #00ffad; font-weight: 700; }
+.ally { color: #29b6f6; font-weight: 700; }
 .enemy { color: #ff2851; font-weight: 700; }
 .memory { color: #ff9800; font-weight: 700; }
 @media (max-width: 600px) {

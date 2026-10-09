@@ -7,7 +7,9 @@ public sealed class FogMapMemory
     private (double Left, double Top, double Right, double Bottom)? previousView;
     private readonly HashSet<(int X, int Y)> explored = [];
     private readonly Dictionary<Guid, MapContact> contacts = [];
+    private readonly Dictionary<Guid, MapContact> teammates = [];
     public IReadOnlyDictionary<Guid, MapContact> Contacts => contacts;
+    public IReadOnlyDictionary<Guid, MapContact> Teammates => teammates;
     public string ExploredPath { get; private set; } = "";
 
     public void Observe(GameMap map, MapCamera camera, double width, double height,
@@ -36,7 +38,9 @@ public sealed class FogMapMemory
             }
             ExploredPath = path.ToString();
         }
-        var visible = tanks.Where(t => t.Id != viewer && !t.Eliminated && !t.Respawning)
+
+        var tankList = tanks as IReadOnlyCollection<TankState> ?? tanks.ToArray();
+        var visible = tankList.Where(t => t.Id != viewer && !t.Eliminated && !t.Respawning)
             .Select(t => new MapContact(t.Id, t.PositionX + Tank.Size / 2.0,
                 t.PositionY - visualTopOffset + Tank.Size / 2.0, true))
             .Where(t => InView(t.X, t.Y)).ToDictionary(t => t.Id);
@@ -51,6 +55,19 @@ public sealed class FogMapMemory
         }
         foreach (var contact in visible.Values) contacts[contact.Id] = contact;
         previousView = (camera.X, camera.Y, right, bottom);
+
+        // Teammates: always current, never decayed, regardless of explored/view state
+        teammates.Clear();
+        var viewerTeam = tankList.FirstOrDefault(t => t.Id == viewer)?.Team;
+        if (viewerTeam is int team)
+        {
+            foreach (var t in tankList)
+            {
+                if (t.Id == viewer || t.Team != team || t.Eliminated || t.Respawning) continue;
+                teammates[t.Id] = new MapContact(t.Id, t.PositionX + Tank.Size / 2.0,
+                    t.PositionY - visualTopOffset + Tank.Size / 2.0, true);
+            }
+        }
     }
 }
 
