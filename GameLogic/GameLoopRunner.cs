@@ -52,6 +52,9 @@ public class GameLoopRunner
         if (game.Status != GameStatus.Ended)
         {
             game.Tick++;
+            // Time only pays once the match is on (a creator waiting alone earns nothing)
+            if (game.StartedAtTick is not null)
+                game.Tracker.Tick(game.Tanks);
             game.RunBots();
             var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
             game.Tanks = game.Tanks
@@ -76,6 +79,9 @@ public class GameLoopRunner
                 mode: game.Settings.Mode));
         }
         }
+
+        if (game.Status == GameStatus.Ended)
+            await game.PayOutAsync();
 
         game.ServerWorkMs = Stopwatch.GetElapsedTime(tickAt).TotalMilliseconds;
         var broadcastAt = Stopwatch.GetTimestamp();

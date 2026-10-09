@@ -1,4 +1,5 @@
 using GameLogic.Bots;
+using GameLogic.Profiles;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 
@@ -34,6 +35,14 @@ public class Game
 
     // Tank id -> the brain steering it
     private readonly ConcurrentDictionary<Guid, BotBrain> botBrains = new();
+
+    // Where earnings go; null means nobody is paid (tests, or no store configured)
+    public IProfileStore? ProfileStore { get; init; }
+    // Money rules live in the tracker; tests can swap in different rates
+    internal EarningsTracker Tracker { get; init; } = new(CurrencyRates.Default, GameLoopRunner.TicksPerSecond);
+    // Tank id -> the profile it plays for. Private on purpose: a profile id is a credential and is never sent to clients
+    private readonly Dictionary<Guid, Guid> profileByTank = new();
+    private bool matchPaidOut;
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
@@ -198,8 +207,9 @@ public class Game
         }
     }
 
-    // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
-    public Guid JoinGame(string? playerName = null)
+    // A blank name (quick join, or no name set) gets a generated one that no one else in the game has.
+    // A profile id makes the tank earn currency for that profile; a profile can only have one tank per game
+    public Guid JoinGame(string? playerName = null, Guid? profileId = null)
     {
         lock (StateLock)
         {
@@ -210,8 +220,15 @@ public class Game
                 throw new InvalidOperationException($"cannot join game, it is single player: {Name}");
             if (Tanks.Count() >= Map.MaxPlayers)
                 throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
+            if (profileId is { } taken && profileByTank.ContainsValue(taken))
+                throw new InvalidOperationException($"cannot join game, this profile is already playing in it: {Name}");
 
             var id = AddTank(playerName, isBot: false);
+            if (profileId is { } profile)
+            {
+                profileByTank[id] = profile;
+                Tracker.Register(id);
+            }
             CreatorId ??= id;
             // Bots arrive with the creator in single player and with the 2nd human in multiplayer; until then nobody
             // would be fighting them. Their seats come out of the same limit as everyone's, so humans can't take them
@@ -222,6 +239,44 @@ public class Game
                     AddTank(null, isBot: true);
             }
             return id;
+        }
+    }
+
+    // With a tank id: that player is leaving, so pay what they have earned and stop their clock.
+    // Without: the match is over, pay everyone (once). Paying again never repeats a payout
+    public async Task PayOutAsync(Guid? tankId = null)
+    {
+        if (ProfileStore is null)
+            return;
+
+        List<(Guid ProfileId, Earnings Earned)> due = [];
+        lock (StateLock)
+        {
+            if (tankId is null)
+            {
+                if (matchPaidOut)
+                    return;
+                matchPaidOut = true;
+            }
+            foreach (var tank in Tanks)
+            {
+                if (tankId is { } only && tank.Id != only)
+                    continue;
+                if (!profileByTank.TryGetValue(tank.Id, out var profileId))
+                    continue;
+                var earned = Tracker.Flush(tank);
+                if (tankId is not null)
+                    Tracker.Stop(tank.Id);
+                if (!earned.IsEmpty)
+                    due.Add((profileId, earned));
+            }
+        }
+
+        // A failing store must not take the game loop down with it
+        foreach (var (profileId, earned) in due)
+        {
+            try { await ProfileStore.AwardAsync(profileId, earned); }
+            catch (Exception ex) { Console.WriteLine($"Could not pay {profileId} in game {Name}: {ex}"); }
         }
     }
 
