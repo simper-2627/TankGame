@@ -1,3 +1,4 @@
+using GameLogic.Versions;
 using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,14 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.MapHub<LobbyHub>("/api/gameHub");
+
+// Which environments the picker can switch to; CI keeps the files in this directory current (deployment/versions.sh).
+var versionsDir = app.Configuration["VERSIONS_DIR"] ?? "/etc/tankgame/versions";
+app.MapGet("/api/versions", (HttpContext http) =>
+{
+  http.Response.Headers.CacheControl = "no-store";
+  return VersionCatalog.Load(versionsDir, app.Configuration["NAMESPACE"]);
+});
 app.MapFallbackToFile("index.html");
 
 app.Run();

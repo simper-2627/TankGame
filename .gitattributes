@@ -1,3 +1,5 @@
 # Keep files shared with the pending interpolation PR consistent across platforms.
 GameFrontend/Pages/GamePage.razor text eol=lf
 GameFrontend/Pages/TankComponent.razor text eol=lf
+
+*.sh text eol=lf
