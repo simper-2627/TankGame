@@ -54,6 +54,8 @@ public record TankState
     public long InputSequence { get; init; }
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
+    // null when the tank looks like the default (every bot, and players who didn't customize), to keep updates small
+    public TankAppearance? Appearance { get; init; }
     public bool IsBot { get; init; }
     // What the bot is doing (SEEK, ATTACK, ...); only sent in Developer simulation, where it's drawn above the tank
     public string? BotState { get; init; }

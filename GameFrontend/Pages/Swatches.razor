@@ -1,0 +1,26 @@
+@page "/swatches"
+@using GameLogic
+
+<PageTitle>Tank swatches</PageTitle>
+
+@* Dev page for tuning TankPalette: every player color plus bot red (hull, barrel, bullet, name color), then every pattern *@
+<div style="display: flex; flex-wrap: wrap; gap: 24px; padding: 16px; background: #c8b98f;">
+    @foreach (var color in TankColors.Player.Append(TankColors.Bot))
+    {
+        var swatch = TankPalette.For(color);
+        <figure style="margin: 0; width: 100px; text-align: center;">
+            <img src="images/PNG/Tanks/tank@(swatch.Sprite).png" style="filter: @swatch.Filter; width: 75px;" alt="" />
+            <img src="images/PNG/Tanks/barrel@(swatch.Sprite).png" style="filter: @swatch.Filter; height: 40px;" alt="" />
+            <img src="images/PNG/Bullets/bullet@(swatch.BulletSprite)Silver_outline.png" style="filter: @swatch.BulletFilter; height: 34px;" alt="" />
+            <figcaption style="color: @swatch.Hex; font-weight: 700; text-shadow: 0 0 2px #000a;">@color</figcaption>
+        </figure>
+    }
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; padding: 16px;">
+    @foreach (var pattern in Enum.GetValues<TankPattern>())
+    {
+        <div style="position: relative; width: 150px; height: 120px;">
+            <TankComponent tank="@(new TankState { Id = Guid.Empty, Name = pattern.ToString(), PositionX = 45, PositionY = 30, Appearance = new TankAppearance { HullColor = "Green", Pattern = pattern } })" VisualTopOffset="0" />
+        </div>
+    }
+</div>
