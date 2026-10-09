@@ -1,0 +1,57 @@
+@using GameLogic.Versions
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+@* Lists the other live environments (prod + PR/branch previews) so you can hop between versions in two clicks. Hidden when there is nothing to switch to. *@
+@if (others.Count > 0)
+{
+    <div class="version-picker">
+        @if (open)
+        {
+            <ul class="version-menu">
+                @foreach (var v in list!.Versions)
+                {
+                    <li>
+                        @if (v.Current)
+                        {
+                            <span class="version-item current">@v.Name <small>(you are here)</small></span>
+                        }
+                        else
+                        {
+                            <button class="version-item" @onclick="() => Switch(v)">
+                                @v.Name
+                                @if (v.Sha.Length >= 7)
+                                {
+                                    <small>@v.Sha[..7]</small>
+                                }
+                            </button>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        <button class="version-toggle" @onclick="() => open = !open">Version: @current?.Name ▴</button>
+    </div>
+}
+
+@code {
+    VersionList? list;
+    bool open;
+
+    VersionEntry? current => list?.Versions.FirstOrDefault(v => v.Current);
+    List<VersionEntry> others => list?.Versions.Where(v => !v.Current).ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            list = await Http.GetFromJsonAsync<VersionList>("api/versions");
+        }
+        catch (Exception e) when (e is HttpRequestException or System.Text.Json.JsonException or NotSupportedException)
+        {
+            // No API next to us (e.g. the local dev server): just don't show the picker.
+        }
+    }
+
+    void Switch(VersionEntry entry) => Nav.NavigateTo(entry.Url, forceLoad: true);
+}

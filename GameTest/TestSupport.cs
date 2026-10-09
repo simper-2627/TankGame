@@ -73,8 +73,8 @@ internal static class TestGames
     public static PlayerInputRequest Input(Guid playerId, bool shoot = false, int? aimX = null, int? aimY = null) => new()
     {
         GameName = "test", PlayerId = playerId,
-        Up = false, Down = false, Left = false, Right = false, Boost = false,
-        Shoot = shoot, AimX = aimX, AimY = aimY,
+        Up = false, Down = false, Left = false, Right = false,
+        Shoot = shoot, Boost = false, AimX = aimX, AimY = aimY,
     };
 
     // Aim at the target's center, then press fire (release first so it counts as a new press)

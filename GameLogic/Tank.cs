@@ -4,8 +4,11 @@ public record Tank
 {
     public long InputSequence { get; init; }
     public const int Size = 60;
+    public int? Team { get; init; }
     public Guid Id { get; } = Guid.NewGuid();
     public string Name { get; init; } = "";
+    // Already sanitized; bots always have the default
+    public TankAppearance Appearance { get; init; } = TankAppearance.Default;
     // Computer-controlled; public to everyone so the screen can draw bots in red
     public bool IsBot { get; init; }
     public int PositionY { get; init; } = 50;
@@ -43,6 +46,11 @@ public record Tank
     public int HitFlashTicks { get; init; }
     // Destroyed but with lives left: waiting to respawn, can't move, shoot or be hit
     public bool Respawning => Health <= 0 && !Eliminated;
+    // Ticks of post-respawn invincibility; everyone can see Shielded status, but not duration
+    public const int ShieldSeconds = 3;
+    public const int ShieldDurationTicks = ShieldSeconds * Game.GameLoopRunner.TicksPerSecond;
+    public int ShieldTicksLeft { get; init; }
+    public bool Shielded => ShieldTicksLeft > 0;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
     // End-of-match stats. Kills are killing blows on other tanks; shots only count once the match has started

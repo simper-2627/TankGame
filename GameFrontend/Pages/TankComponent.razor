@@ -23,23 +23,39 @@
     private const double hullImageWidth = 75;
     private const double spriteScale = Tank.Size / hullImageWidth;
 
-    private string color = "Green";
+    private ResolvedLook look = TankLook.Resolve(Guid.Empty, false, null, null);
+    private TankPalette.Swatch hull = TankPalette.For("Green");
+    private TankPalette.Swatch barrel = TankPalette.For("Green");
     private double? hullRotation;
     private double? turretRotation;
 
     protected override void OnParametersSet()
     {
-        color = TankPalette.TankColor(tank.Id, tank.IsBot);
+        look = TankLook.Resolve(tank);
+        hull = TankPalette.For(look.Hull);
+        barrel = TankPalette.For(look.Barrel);
         hullRotation = ShortestRotation(hullRotation, tank.Angle + spriteFacingOffset);
         turretRotation = ShortestRotation(turretRotation, tank.TurretAngle + spriteFacingOffset);
     }
 
     private const string flashColor = "#ff1f1f";
-    private string FlashStyle(string part)
+    private string FlashStyle(string part, string sprite)
     {
-        var mask = $"url(images/PNG/Tanks/{part}{color}.png) no-repeat center / 100% 100%";
+        var mask = $"url(images/PNG/Tanks/{part}{sprite}.png) no-repeat center / 100% 100%";
         return $"background: {flashColor}; -webkit-mask: {mask}; mask: {mask}; opacity: {(tank.Flashing ? 0.4 : 0)}; pointer-events: none;";
     }
+
+    // The pattern is cut to the hull's shape the same way as the flash, and see-through so the sprite's shading shows
+    private string PatternStyle()
+    {
+        var mask = $"url(images/PNG/Tanks/tank{hull.Sprite}.png) no-repeat center / 100% 100%";
+        var background = TankPalette.PatternBackground(look.Pattern, TankPalette.For(look.PatternColor).Hex);
+        return $"background: {background}; -webkit-mask: {mask}; mask: {mask}; opacity: 0.55; pointer-events: none;";
+    }
+
+    private string NameStyle => look.NameColor is { } nameColor
+        ? $"color: {TankPalette.For(nameColor).Hex}; text-shadow: 0 0 2px #000a;"
+        : "";
 
     // Keep the rotation continuous so crossing 180/-180 doesn't animate the long way around
     static double ShortestRotation(double? previous, int target)
@@ -54,41 +70,54 @@
 
 @if (tank != null && tank.Respawning)
 {
-    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width:   {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
+    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width:    {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
         @(tank.RespawnTicksLeft > 0 ? $"Respawning in {(tank.RespawnTicksLeft + GameLoopRunner.TicksPerSecond - 1) /
     GameLoopRunner.TicksPerSecond}s" : "Waiting for a safe spawn")
     </div>
 }
 else if (tank != null && !tank.Eliminated)
 {
-    <div class="tank-sprite" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
+    <div class="tank-sprite" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; top: {tank.PositionY -
+         VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
         @* Health bar on top of the tank; the name and lives sit underneath so neither hides the other.
            Health and lives are private: the server only sends them for your own tank (and for everyone once the match ends) *@
         @if (tank.Health is int health)
         {
-            <div style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
+            <div
+                style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
                 <div style=@($"height: 100%; width: {Math.Clamp(health, 0, MaxHealth) * 100 / Math.Max(1, MaxHealth)}%; background: #3c3;")></div>
             </div>
         }
-        @if (tank.BotState is { } botState)
+        @if (tank.BoostEnergy is int energy)
         {
-            <div style="position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #b00; white-space: nowrap; pointer-events: none;">@botState</div>
+            <div
+                style="position: absolute; bottom: calc(100% + 7px); left: 0; width: 100%; height: 5px; background: #223; pointer-events: none;">
+                <div style=@($"height: 100%; width: {Math.Clamp(energy, 0, (int)Tank.BoostMaxEnergy) * 100 /
+                     (int)Tank.BoostMaxEnergy}%; background: #39f;")></div>
+            </div>
         }
-        <div title="@tank.Name" style="position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 10px; line-height: 14px;">
-            @(tank.IsBot ? "🤖 " : "")@tank.Name@if (tank.Health is int hp && tank.Deaths is int deaths)
+        <div title="@tank.Name" style=@($"position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 10px; line-height: 14px; {NameStyle}")>
+            @(tank.IsBot ? "🤖 " : "")@(look.Tag.Length > 0 ? look.Tag + " " : "")@tank.Name@if (tank.Health is int hp && tank.Deaths is int deaths)
             {
-                <text> · HP @hp/@MaxHealth · @Math.Max(0, MaxLives - deaths) @(MaxLives - deaths == 1 ? "life" : "lives")</text>
+                <div style=@($"position: absolute; inset: -6px; border: 2px dashed #38bdf8; border-radius: 50%; background: transparent; pointer-events: none;")></div>
             }
+    
+            @* After the sprite so it draws over the barrel *@
+            <ReloadRing MsLeft="tank.ReloadMsLeft" TotalMs="ReloadMs" />
         </div>
         @* Origin at the box center, scaled so the sprite fills the collision box *@
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>
-            <img src=@($"images/PNG/Tanks/tank{color}.png") alt=""
-                 style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg);") />
+            <img src=@($"images/PNG/Tanks/tank{hull.Sprite}.png") alt=""
+                 style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); filter: {hull.Filter};") />
+            @if (look.Pattern != TankPattern.None)
+            {
+                <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; width: 75px; height: 70px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); {PatternStyle()}") />
+            }
             @* Hit flash: a red copy of the sprite's own shape laid over it, so it works for every tank color *@
-            <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; width: 75px; height: 70px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); {FlashStyle("tank")}") />
-            <img src=@($"images/PNG/Tanks/barrel{color}.png") alt=""
-                 style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
-            <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; width: 16px; height: 50px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg); {FlashStyle("barrel")}") />
+            <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; width: 75px; height: 70px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); {FlashStyle("tank", hull.Sprite)}") />
+            <img src=@($"images/PNG/Tanks/barrel{barrel.Sprite}.png") alt=""
+                 style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg); filter: {barrel.Filter};") />
+            <div style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; width: 16px; height: 50px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg); {FlashStyle("barrel", barrel.Sprite)}") />
         </div>
         @* After the sprite so it draws over the barrel *@
         <ReloadRing MsLeft="tank.ReloadMsLeft" TotalMs="ReloadMs" />

@@ -21,6 +21,10 @@
       <div class="d-flex flex-wrap align-items-center gap-2">
         <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
         <span>@game.MatchType</span>
+        @if (LocalTank?.Team is int myTeam)
+        {
+          <span>&middot; You're on @Teams.Name(myTeam)</span>
+        }
         @if (game.SecondsLeft is int secondsLeft)
         {
           <span>Time left: @(secondsLeft / 60):@((secondsLeft % 60).ToString("00"))</span>
@@ -28,7 +32,13 @@
       </div>
       @if (game.Status == GameStatus.Ended)
       {
-        <div class="alert alert-info py-2 mb-2">@MatchResults.Headline(game, PlayerId)</div>
+        <div class="alert alert-info py-2 mb-2">
+          @(game.WinningTeam is int team ? (team == LocalTank?.Team ? "Your team wins!" : $"{Teams.Name(team)} team wins")
+            : game.BotsWon ? "The bots won!"
+            : game.WinnerId is null ? "Draw!"
+            : game.WinnerId == PlayerId ? "You win!"
+            : $"{game.WinnerId.Value.ToString()[^5..]} wins")
+        </div>
       }
       @if (WatchingOther)
       {
@@ -439,7 +449,7 @@
   // Dev simulation only: another tank to shoot at (it just sits at its spawn point)
   private async Task AddTargetTank()
   {
-    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "")!;
+    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "", (TankAppearance?)null)!;
   }
 
   // Dev simulation only: a computer tank that uses the match's bot difficulty

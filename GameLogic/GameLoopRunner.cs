@@ -57,6 +57,7 @@ public class GameLoopRunner
             game.Tanks = game.Tanks
                 .Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement))
                 .Select(tank => tank.HitFlashTicks > 0 ? tank with { HitFlashTicks = tank.HitFlashTicks - 1 } : tank)
+                .Select(tank => tank.ShieldTicksLeft > 0 ? tank with { ShieldTicksLeft = tank.ShieldTicksLeft - 1 } : tank)
                 .ToArray();
             game.Bullets = game.Bullets
                 .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
@@ -72,7 +73,8 @@ public class GameLoopRunner
             }
             game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);
             game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft,
-                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin));
+                singlePlayer: game.MatchType == GameMatchTypes.Bots, clearBotsToWin: game.Settings.ClearBotsToWin,
+                mode: game.Settings.Mode));
         }
         }
 

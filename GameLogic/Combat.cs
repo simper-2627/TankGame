@@ -1,7 +1,7 @@
 namespace GameLogic;
 
-// WinnerId is null when an ended match is a draw, or when the bots won (BotsWon)
-public record MatchResult(bool Ended, Guid? WinnerId, bool BotsWon = false)
+// WinnerId is null when an ended match is a draw, or when the bots won (BotsWon); team matches set WinningTeam instead
+public record MatchResult(bool Ended, Guid? WinnerId, bool BotsWon = false, int? WinningTeam = null)
 {
     public static readonly MatchResult Ongoing = new(false, null);
 }
@@ -37,7 +37,10 @@ public static class Combat
     // One hit: 1 health off the target, credited to the shooter (plus a kill if it was the killing blow)
     public static void ApplyHit(List<Tank> tankList, int targetIndex, Guid shooterId, MatchSettings match)
     {
-        var target = tankList[targetIndex] with { HitsTaken = tankList[targetIndex].HitsTaken + 1 };
+        var target = tankList[targetIndex];
+        if (target.Shielded)
+            return;
+
         var health = Math.Max(0, target.Health - 1);
         tankList[targetIndex] = health > 0 ? target with { Health = health, HitFlashTicks = Tank.HitFlashTicksOnHit } : Destroy(target, match);
 
@@ -130,7 +133,8 @@ public static class Combat
                 PositionX = spawn.X, PositionY = spawn.Y,
                 Angle = spawn.Angle, TurretAngle = spawn.Angle,
                 Health = match.Health, RespawnTicksLeft = 0, NextShotAtMs = 0,
-                AimX = null, AimY = null, PendingSpawn = null
+                AimX = null, AimY = null, PendingSpawn = null,
+                ShieldTicksLeft = Tank.ShieldDurationTicks
             };
         }
         return result;
@@ -140,8 +144,11 @@ public static class Combat
     // ticksLeft is null when there's no time limit (or it hasn't started).
     // With bots in the match the rules change (see DecideWithBots); without them it's last tank standing
     public static MatchResult DecideResult(IReadOnlyCollection<Tank> tanks, int? ticksLeft,
-        bool singlePlayer = false, bool clearBotsToWin = false)
+        bool singlePlayer = false, bool clearBotsToWin = false, GameMode mode = GameMode.FreeForAll)
     {
+        if (mode == GameMode.TeamElimination)
+            return DecideTeamResult(tanks, ticksLeft);
+
         if (tanks.Count < 2)
             return MatchResult.Ongoing;
         if (tanks.Any(tank => tank.IsBot))
@@ -185,6 +192,36 @@ public static class Combat
         if (humansAlive.Count >= 2 && timeUp)
             return ByHealthThenHits(humansAlive);
         return MatchResult.Ongoing;
+    }
+
+    // Last team with a tank left wins. Both teams need a player first, or the first to join would win alone.
+    // Bots have no team: they are a hazard to everyone, so they never decide a team match
+    private static MatchResult DecideTeamResult(IReadOnlyCollection<Tank> tanks, int? ticksLeft)
+    {
+        var teams = tanks.Where(tank => tank.Team is not null).GroupBy(tank => tank.Team!.Value).ToList();
+        if (teams.Count < 2)
+            return MatchResult.Ongoing;
+
+        var standing = teams.Where(team => team.Any(tank => !tank.Eliminated)).ToList();
+        if (standing.Count == 0)
+            return new MatchResult(true, null, BotsWon: tanks.Any(tank => tank.IsBot && !tank.Eliminated));
+        if (standing.Count == 1)
+            return new MatchResult(true, null, WinningTeam: standing[0].Key);
+        if (ticksLeft is <= 0)
+            return ByTeamSurvivors(standing);
+        return MatchResult.Ongoing;
+    }
+
+    // Time ran out: most tanks still in wins, then fewest deaths across the team; a full tie is a draw
+    private static MatchResult ByTeamSurvivors(List<IGrouping<int, Tank>> standing)
+    {
+        var ranked = standing
+            .Select(team => (Team: team.Key, Alive: team.Count(tank => !tank.Eliminated), Deaths: team.Sum(tank => tank.Deaths)))
+            .OrderByDescending(team => team.Alive).ThenBy(team => team.Deaths)
+            .ToList();
+        var (first, second) = (ranked[0], ranked[1]);
+        var tied = first.Alive == second.Alive && first.Deaths == second.Deaths;
+        return new MatchResult(true, null, WinningTeam: tied ? null : first.Team);
     }
 
     // Time ran out: fewest deaths wins, then most health, then most hits landed; a full tie is a draw

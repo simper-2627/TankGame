@@ -17,6 +17,7 @@ public record GameState
     public Guid? WinnerId { get; init; }
     // The bots won (every human is out, or time ran out in single player); WinnerId is null then
     public bool BotsWon { get; init; }
+    public int? WinningTeam { get; init; }
     // Null when there's no time limit or it hasn't started
     public int? SecondsLeft { get; init; }
     // Time played since the 2nd player joined, frozen when the match ends; null before that
@@ -55,21 +56,27 @@ public record TankState
     public long InputSequence { get; init; }
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
+    // null when the tank looks like the default (every bot, and players who didn't customize), to keep updates small
+    public TankAppearance? Appearance { get; init; }
     public bool IsBot { get; init; }
     // What the bot is doing (SEEK, ATTACK, ...); only sent in Developer simulation, where it's drawn above the tank
     public string? BotState { get; init; }
+    public int? Team { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }
     public int TurretAngle { get; init; }
     // Private while the tank is alive: only its owner (and everyone, once the match ends) gets the number
     public int? Health { get; init; }
+    public int? BoostEnergy { get; init; }
     public bool Eliminated { get; init; }
     // Private like Health
     public int? Deaths { get; init; }
     public int RespawnTicksLeft { get; init; }
     // Just got hit. Public, so everyone can see the damage without learning how much health is left
     public bool Flashing { get; init; }
+    // "Got the invincibility shield?"
+    public bool Shielded { get; init; }
     public bool Boosting { get; init; }
     // Private: only filled in for the tank's own viewer, null for everyone else
     public MapSpawnPoint? PendingSpawn { get; init; }

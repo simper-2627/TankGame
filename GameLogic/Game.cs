@@ -19,6 +19,8 @@ public class Game
     // Null while playing, and also when an ended match is a draw
     public Guid? WinnerId { get; private set; }
     public bool BotsWon { get; private set; }
+    // Set when a team match ends with a winning team
+    public int? WinningTeam { get; private set; }
     // Game loop ticks processed so far (10 per second)
     public int Tick { get; internal set; }
     // Tick when the 2nd player joined; the time limit counts from here
@@ -91,7 +93,10 @@ public class Game
     {
         return new()
         {
-            Tick = Tick, ServerWorkMs = ServerWorkMs, ServerIntervalMs = ServerIntervalMs, ServerBroadcastMs = ServerBroadcastMs,
+            Tick = Tick,
+            ServerWorkMs = ServerWorkMs,
+            ServerIntervalMs = ServerIntervalMs,
+            ServerBroadcastMs = ServerBroadcastMs,
             Status = Status,
             Name = Name,
             MatchType = MatchType,
@@ -100,6 +105,7 @@ public class Game
             CreatorId = CreatorId,
             WinnerId = WinnerId,
             BotsWon = BotsWon,
+            WinningTeam = WinningTeam,
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
@@ -133,7 +139,9 @@ public class Game
         {
             Id = t.Id,
             Name = t.Name,
+            Appearance = t.Appearance == TankAppearance.Default ? null : t.Appearance,
             IsBot = t.IsBot,
+            Team = t.Team,
             BotState = MatchType == GameMatchTypes.DeveloperSimulation && botBrains.TryGetValue(t.Id, out var brain)
                 ? brain.State.ToString().ToUpperInvariant()
                 : null,
@@ -144,11 +152,13 @@ public class Game
             TurretAngle = t.TurretAngle,
             // A destroyed tank's 0 health is public (it shows as respawning or out); a living tank's isn't
             Health = revealed || t.Health <= 0 ? t.Health : null,
+            BoostEnergy = revealed ? (int)Math.Round(t.BoostEnergy) : null,
             Eliminated = t.Eliminated,
             Deaths = revealed ? t.Deaths : null,
             RespawnTicksLeft = t.RespawnTicksLeft,
             Flashing = t.HitFlashTicks > 0,
             Boosting = t.Boosting,
+            Shielded = t.Shielded,
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
@@ -206,7 +216,7 @@ public class Game
     }
 
     // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
-    public Guid JoinGame(string? playerName = null)
+    public Guid JoinGame(string? playerName = null, TankAppearance? appearance = null)
     {
         lock (StateLock)
         {
@@ -218,7 +228,7 @@ public class Game
             if (Tanks.Count() >= Map.MaxPlayers)
                 throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
 
-            var id = AddTank(playerName, isBot: false);
+            var id = AddTank(playerName, isBot: false, appearance);
             CreatorId ??= id;
             // Bots arrive with the creator in single player and with the 2nd human in multiplayer; until then nobody
             // would be fighting them. Their seats come out of the same limit as everyone's, so humans can't take them
@@ -233,20 +243,27 @@ public class Game
     }
 
     // Caller holds StateLock. No free spawn point means the tank waits, like a respawn
-    private Guid AddTank(string? playerName, bool isBot)
+    private Guid AddTank(string? playerName, bool isBot, TankAppearance? appearance = null)
     {
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
+        // Humans join whichever team is smaller; bots stay teamless and attack everyone
+        int team1Count = Tanks.Count(t => t.Team == 1);
+        int team2Count = Tanks.Count(t => t.Team == 2);
         var newTank = new Tank
         {
             Name = string.IsNullOrWhiteSpace(playerName)
                 ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
                 : playerName.Trim(),
             IsBot = isBot,
+            Appearance = isBot ? TankAppearance.Default : (appearance ?? TankAppearance.Default).Sanitize(),
             PositionX = spawnPoint?.X ?? 0,
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,
             TurretAngle = spawnPoint?.Angle ?? 0,
-            Health = spawnPoint is null ? 0 : Settings.Health
+            Health = spawnPoint is null ? 0 : Settings.Health,
+            Team = Settings.Mode == GameMode.TeamElimination && !isBot
+                ? (team1Count <= team2Count ? 1 : 2)
+                : null,
         };
         Tanks = Tanks.Append(newTank);
         if (isBot)
@@ -282,62 +299,56 @@ public class Game
     {
         lock (StateLock)
         {
-        if (Status == GameStatus.Ended)
-            return false;
+            if (Status == GameStatus.Ended)
+                return false;
 
-        Tank? instantShooter = null;
-        Tanks = Tanks.Select(t =>
-        {
-            // Eliminated (or respawning) players keep watching but can't drive or shoot
-            if (t.Id == request.PlayerId && !t.Eliminated && !t.Respawning)
+            Tank? instantShooter = null;
+            Tanks = Tanks.Select(t =>
             {
-
-                var updatedTank = t with
+                // Eliminated (or respawning) players keep watching but can't drive or shoot
+                if (t.Id == request.PlayerId && !t.Eliminated && !t.Respawning)
                 {
-                    InputSequence = request.InputSequence,
-                    MovingUp = request.Up,
-                    MovingLeft = request.Left,
-                    MovingRight = request.Right,
-                    Shooting = request.Shoot,
-                    MovingDown = request.Down,
-                    BoostHeld = request.Boost,
-                    AimX = request.AimX ?? t.AimX,
-                    AimY = request.AimY ?? t.AimY,
-                };
-                updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
-
-                // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
-                var now = Clock();
-                if (updatedTank.Shooting && !t.Shooting && now >= t.NextShotAtMs)
-                {
-                    if (Settings.Projectile == ProjectileType.Realistic)
-                        instantShooter = updatedTank;
-                    else
-                        Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
-                    // Practice shots before the 2nd player joins don't count against accuracy
-                    updatedTank = updatedTank with
+                    var updatedTank = t with
                     {
-                        NextShotAtMs = now + Settings.ReloadMs,
-                        ShotsFired = t.ShotsFired + (StartedAtTick is null ? 0 : 1),
+                        InputSequence = request.InputSequence,
+                        MovingUp = request.Up,
+                        MovingLeft = request.Left,
+                        MovingRight = request.Right,
+                        Shooting = request.Shoot,
+                        MovingDown = request.Down,
+                        BoostHeld = request.Boost,
+                        AimX = request.AimX ?? t.AimX,
+                        AimY = request.AimY ?? t.AimY,
                     };
+                    updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
+
+                    // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
+                    var now = Clock();
+                    if (updatedTank.Shooting && !t.Shooting && now >= t.NextShotAtMs)
+                    {
+                        if (Settings.Projectile == ProjectileType.Realistic)
+                            instantShooter = updatedTank;
+                        else
+                            Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
+                        updatedTank = updatedTank with { NextShotAtMs = now + Settings.ReloadMs };
+                    }
+
+                    //if (updatedTank.Bullet != null)
+                    //{
+                    //    updatedTank = updatedTank with
+                    //    {
+                    //        Bullet = Bullet.MoveBullet(updatedTank)
+                    //    };
+                    //}
+                    return updatedTank;
                 }
+                return t;
+            })
+            .ToArray();
 
-                //if (updatedTank.Bullet != null)
-                //{
-                //    updatedTank = updatedTank with
-                //    {
-                //        Bullet = Bullet.MoveBullet(updatedTank)
-                //    };
-                //}
-                return updatedTank;
-            }
-            return t;
-        })
-        .ToArray();
-
-        if (instantShooter is not null)
-            FireInstantShot(instantShooter);
-        return instantShooter is not null;
+            if (instantShooter is not null)
+                FireInstantShot(instantShooter);
+            return instantShooter is not null;
         }
     }
 
@@ -412,10 +423,7 @@ public class Game
         EndedAtTick = Tick;
         WinnerId = result.WinnerId;
         BotsWon = result.BotsWon;
-        // Nothing moves after the end, so the standings are worked out once
-        placements = MatchSummary.Rank(Tanks, WinnerId)
-            .Select((tank, index) => (tank.Id, Place: index + 1))
-            .ToDictionary(entry => entry.Id, entry => entry.Place);
+        WinningTeam = result.WinningTeam;
     }
 
 }
