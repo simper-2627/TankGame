@@ -66,21 +66,3 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: tankgame
-  namespace: $NAMESPACE
-  annotations:
-    tailscale.com/funnel: "true"
-spec:
-  ingressClassName: tailscale
-  defaultBackend:
-    service:
-      name: tankgame
-      port:
-        number: 80
-  tls:
-    - hosts:
-        - $NAMESPACE
