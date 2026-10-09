@@ -8,11 +8,11 @@ public class PlayerNameTests
     public void ChosenNameIsKeptAndSentToEveryViewer()
     {
         var game = TestGames.NewGame();
-        var me = game.JoinGame("  Marc ");
+        var me = game.JoinGame("  Rex ");
         var other = game.JoinGame();
 
         var seenByOther = game.GetGameState(viewerId: other).Tanks!.Single(t => t.Id == me);
-        Assert.Equal("Marc", seenByOther.Name);
+        Assert.Equal("Rex", seenByOther.Name);
     }
 
     [Theory]
