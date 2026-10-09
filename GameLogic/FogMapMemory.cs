@@ -40,7 +40,10 @@ public sealed class FogMapMemory
         }
 
         var tankList = tanks as IReadOnlyCollection<TankState> ?? tanks.ToArray();
-        var visible = tankList.Where(t => t.Id != viewer && !t.Eliminated && !t.Respawning)
+        var viewerTeam = tankList.FirstOrDefault(t => t.Id == viewer)?.Team;
+
+        var visible = tankList.Where(t => t.Id != viewer && !t.Eliminated && !t.Respawning
+                                     && viewerTeam is null || t.Team != viewerTeam)
             .Select(t => new MapContact(t.Id, t.PositionX + Tank.Size / 2.0,
                 t.PositionY - visualTopOffset + Tank.Size / 2.0, true))
             .Where(t => InView(t.X, t.Y)).ToDictionary(t => t.Id);
@@ -58,7 +61,6 @@ public sealed class FogMapMemory
 
         // Teammates: always current, never decayed, regardless of explored/view state
         teammates.Clear();
-        var viewerTeam = tankList.FirstOrDefault(t => t.Id == viewer)?.Team;
         if (viewerTeam is int team)
         {
             foreach (var t in tankList)
