@@ -13,4 +13,6 @@ public static class Messages
   public static readonly string UpdateDeveloperSettings = "UpdateDeveloperSettings";
   public static readonly string UpdateMatchSettings = "UpdateMatchSettings";
   public static readonly string AddBot = "AddBot";
+  public static readonly string GetOrCreateProfile = "GetOrCreateProfile";
+  public static readonly string RenameProfile = "RenameProfile";
 }

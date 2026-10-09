@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GameLogic;
 using GameLogic.Game;
+using GameLogic.Profiles;
 using Microsoft.AspNetCore.SignalR;
 
 
@@ -13,13 +14,30 @@ public class LobbyHub : Hub
   }
   public long PerformancePing() => Environment.TickCount64;
 
+  // The id comes from the player's browser. A missing or unknown one (first visit, or the server restarted) gets a new profile;
+  // the client stores whatever id comes back. The profile is returned to the caller only
+  public async Task<Profile> GetOrCreateProfile(Guid? profileId)
+  {
+    if (profileId is { } id && await lobby.Profiles.GetAsync(id) is { } existing)
+      return existing;
+    return await lobby.Profiles.CreateAsync();
+  }
+
+  public async Task<Profile> RenameProfile(Guid profileId, string name)
+  {
+    if (!ProfileName.TryNormalize(name, out var clean))
+      throw new HubException($"Names must be 1-{ProfileName.MaxLength} characters.");
+    return await lobby.Profiles.RenameAsync(profileId, clean)
+      ?? throw new HubException("Profile not found. Reload the page to start a new one.");
+  }
+
   public async Task SendMessage(string user, string message)
   {
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
   // SignalR doesn't fill optional parameters, so clients must send every argument
-  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null, string? playerName = null)
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null, string? playerName = null, Guid? profileId = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -30,7 +48,8 @@ public class LobbyHub : Hub
     var game = lobby.CreateGame(name, mapName, matchType, settings);
     Console.WriteLine($"created game: {name}");
 
-    var playerId = game.JoinGame(playerName);
+    var (resolvedName, resolvedProfile) = await lobby.ResolvePlayerAsync(playerName, profileId);
+    var playerId = game.JoinGame(resolvedName, resolvedProfile);
 
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.CreatedGame, game.Name, playerId);
     game.loopRunner.RunGameLoop();
@@ -39,11 +58,12 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync(Messages.GameList, games);
   }
 
-  public async Task JoinGame(string gameName, string? playerName = null)
+  public async Task JoinGame(string gameName, string? playerName = null, Guid? profileId = null)
   {
     var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
       ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
-    var playerId = game.JoinGame(playerName);
+    var (resolvedName, resolvedProfile) = await lobby.ResolvePlayerAsync(playerName, profileId);
+    var playerId = game.JoinGame(resolvedName, resolvedProfile);
     await SubscribeToGame(gameName, playerId);
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.JoinedGame, game.Name, playerId);
     await Clients.All.SendAsync(Messages.GameList, lobby.Games.Select(g => g.GetGameState()).ToArray());
@@ -71,9 +91,11 @@ public class LobbyHub : Hub
 
   }
 
-  public void UnsubscribeFromGame(string gameName)
+  public async Task UnsubscribeFromGame(string gameName)
   {
-    lobby.Games.FirstOrDefault(g => g.Name == gameName)?.ConnectedClients.TryRemove(Context.ConnectionId, out _);
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName);
+    if (game is not null && game.ConnectedClients.TryRemove(Context.ConnectionId, out var playerId) && playerId is { } id)
+      await game.PayOutAsync(id);
   }
 
   public async Task PlayerInput(PlayerInputRequest request)
@@ -116,9 +138,11 @@ public class LobbyHub : Hub
 
     foreach (var game in lobby.Games)
     {
-      if (game.ConnectedClients.TryRemove(connectionId, out _))
+      if (game.ConnectedClients.TryRemove(connectionId, out var playerId))
       {
         Console.WriteLine($"Removed connection: {connectionId} from game {game.Name}");
+        if (playerId is { } id)
+          await game.PayOutAsync(id);
       }
     }
     await base.OnDisconnectedAsync(exception);
