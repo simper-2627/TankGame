@@ -1348,3 +1348,34 @@ button:focus-visible,
         transition-duration: 0.001ms !important;
     }
 }
+
+.profile-panel {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.profile-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-cash {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.profile-cash-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.profile-cash-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}

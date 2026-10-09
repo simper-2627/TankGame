@@ -26,5 +26,5 @@ public static class DebugBridge
   // Adds another tank to a game; its id shows up in the game state
   [JSInvokable]
   public static Task Join(string gameName) =>
-    Service?.HubConnection?.SendAsync(Messages.JoinGame, gameName) ?? Task.CompletedTask;
+    Service?.HubConnection?.SendAsync(Messages.JoinGame, gameName, "", null) ?? Task.CompletedTask;
 }
