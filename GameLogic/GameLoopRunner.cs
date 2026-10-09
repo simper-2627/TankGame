@@ -57,6 +57,7 @@ public class GameLoopRunner
             game.Tanks = game.Tanks
                 .Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement))
                 .Select(tank => tank.HitFlashTicks > 0 ? tank with { HitFlashTicks = tank.HitFlashTicks - 1 } : tank)
+                .Select(tank => tank.ShieldTicksLeft > 0 ? tank with { ShieldTicksLeft = tank.ShieldTicksLeft - 1 } : tank)
                 .ToArray();
             game.Bullets = game.Bullets
                 .Select(bullet => Bullet.MoveBullet(bullet, game.Map))

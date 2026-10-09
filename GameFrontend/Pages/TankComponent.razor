@@ -70,31 +70,40 @@
 
 @if (tank != null && tank.Respawning)
 {
-    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width:   {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
+    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width:    {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
         @(tank.RespawnTicksLeft > 0 ? $"Respawning in {(tank.RespawnTicksLeft + GameLoopRunner.TicksPerSecond - 1) /
     GameLoopRunner.TicksPerSecond}s" : "Waiting for a safe spawn")
     </div>
 }
 else if (tank != null && !tank.Eliminated)
 {
-    <div class="tank-sprite" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
+    <div class="tank-sprite" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; top: {tank.PositionY -
+         VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
         @* Health bar on top of the tank; the name and lives sit underneath so neither hides the other.
            Health and lives are private: the server only sends them for your own tank (and for everyone once the match ends) *@
         @if (tank.Health is int health)
         {
-            <div style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
+            <div
+                style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
                 <div style=@($"height: 100%; width: {Math.Clamp(health, 0, MaxHealth) * 100 / Math.Max(1, MaxHealth)}%; background: #3c3;")></div>
             </div>
         }
-        @if (tank.BotState is { } botState)
+        @if (tank.BoostEnergy is int energy)
         {
-            <div style="position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #b00; white-space: nowrap; pointer-events: none;">@botState</div>
+            <div
+                style="position: absolute; bottom: calc(100% + 7px); left: 0; width: 100%; height: 5px; background: #223; pointer-events: none;">
+                <div style=@($"height: 100%; width: {Math.Clamp(energy, 0, (int)Tank.BoostMaxEnergy) * 100 /
+                     (int)Tank.BoostMaxEnergy}%; background: #39f;")></div>
+            </div>
         }
         <div title="@tank.Name" style=@($"position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 10px; line-height: 14px; {NameStyle}")>
             @(tank.IsBot ? "🤖 " : "")@(look.Tag.Length > 0 ? look.Tag + " " : "")@tank.Name@if (tank.Health is int hp && tank.Deaths is int deaths)
             {
-                <text> · HP @hp/@MaxHealth · @Math.Max(0, MaxLives - deaths) @(MaxLives - deaths == 1 ? "life" : "lives")</text>
+                <div style=@($"position: absolute; inset: -6px; border: 2px dashed #38bdf8; border-radius: 50%; background: transparent; pointer-events: none;")></div>
             }
+    
+            @* After the sprite so it draws over the barrel *@
+            <ReloadRing MsLeft="tank.ReloadMsLeft" TotalMs="ReloadMs" />
         </div>
         @* Origin at the box center, scaled so the sprite fills the collision box *@
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>

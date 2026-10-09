@@ -38,6 +38,9 @@ public static class Combat
     public static void ApplyHit(List<Tank> tankList, int targetIndex, Guid shooterId, MatchSettings match)
     {
         var target = tankList[targetIndex];
+        if (target.Shielded)
+            return;
+
         var health = Math.Max(0, target.Health - 1);
         tankList[targetIndex] = health > 0 ? target with { Health = health, HitFlashTicks = Tank.HitFlashTicksOnHit } : Destroy(target, match);
 
@@ -123,7 +126,8 @@ public static class Combat
                 PositionX = spawn.X, PositionY = spawn.Y,
                 Angle = spawn.Angle, TurretAngle = spawn.Angle,
                 Health = match.Health, RespawnTicksLeft = 0, NextShotAtMs = 0,
-                AimX = null, AimY = null, PendingSpawn = null
+                AimX = null, AimY = null, PendingSpawn = null,
+                ShieldTicksLeft = Tank.ShieldDurationTicks
             };
         }
         return result;

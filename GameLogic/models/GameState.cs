@@ -66,12 +66,15 @@ public record TankState
     public int TurretAngle { get; init; }
     // Private while the tank is alive: only its owner (and everyone, once the match ends) gets the number
     public int? Health { get; init; }
+    public int? BoostEnergy { get; init; }
     public bool Eliminated { get; init; }
     // Private like Health
     public int? Deaths { get; init; }
     public int RespawnTicksLeft { get; init; }
     // Just got hit. Public, so everyone can see the damage without learning how much health is left
     public bool Flashing { get; init; }
+    // "Got the invincibility shield?"
+    public bool Shielded { get; init; }
     public bool Boosting { get; init; }
     // Private: only filled in for the tank's own viewer, null for everyone else
     public MapSpawnPoint? PendingSpawn { get; init; }

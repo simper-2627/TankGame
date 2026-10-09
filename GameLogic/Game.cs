@@ -145,11 +145,13 @@ public class Game
             TurretAngle = t.TurretAngle,
             // A destroyed tank's 0 health is public (it shows as respawning or out); a living tank's isn't
             Health = revealed || t.Health <= 0 ? t.Health : null,
+            BoostEnergy = revealed ? (int)Math.Round(t.BoostEnergy) : null,
             Eliminated = t.Eliminated,
             Deaths = revealed ? t.Deaths : null,
             RespawnTicksLeft = t.RespawnTicksLeft,
             Flashing = t.HitFlashTicks > 0,
             Boosting = t.Boosting,
+            Shielded = t.Shielded,
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
