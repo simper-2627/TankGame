@@ -19,7 +19,7 @@ Give players a persistent profile (editable display name) and an in-game currenc
 - `Profile { Id, DisplayName, Cash, SecondsPlayed, HitsLanded, Kills }`.
 - `IProfileStore` (async): `GetAsync(id)`, `CreateAsync()`, `RenameAsync(id, name)`, `AwardAsync(id, Earnings)`.
   - `AwardAsync` applies an atomic delta (cash += x, counters += y), mapping directly to a SQL `UPDATE` later.
-- `InMemoryProfileStore`: `ConcurrentDictionary`-backed; the only implementation. Registered as a singleton in `GameApi/Program.cs`; swapping the DB means one new class and one changed line.
+- `InMemoryProfileStore`: lock-guarded dictionary; the only implementation. `Lobby` creates it by default (and accepts any `IProfileStore`); swapping the DB means one new class and passing it to `Lobby`.
 - Names are trimmed, 1 to 20 characters, not required to be unique. Invalid names are rejected.
 
 ### Earnings
@@ -29,6 +29,7 @@ Give players a persistent profile (editable display name) and an in-game currenc
   - Time counts only while the match is in progress.
   - Self-hits do not count (consistent with `HitsLanded`).
   - Bot kills pay the same as player kills.
+  - A profile can have only one tank per game, so a player cannot farm kills on themselves with two tabs.
   - `Flush(tankId)` returns only the earnings since the last flush, so no double payouts.
 
 ## Wiring
