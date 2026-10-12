@@ -1,0 +1,94 @@
+/* Uses the lobby theme variables (--line-strong, --accent, --ui, ...) from Home.razor.css, which this panel sits inside */
+.customizer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    margin-top: 4px;
+}
+
+.preview {
+    position: relative;
+    flex: none;
+    width: 160px;
+    height: 130px;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #6b7f4a;
+}
+
+.fields {
+    flex: 1;
+    min-width: 220px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px 16px;
+}
+
+/* Same look as the lobby's .field-label */
+.fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* Same look as the "Your name" box */
+.fields select,
+.fields input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    outline: 0;
+    background-color: rgba(0, 0, 0, 0.35);
+    color: var(--text);
+    font-family: var(--ui);
+    font-size: 0.95rem;
+    letter-spacing: normal;
+    text-transform: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    /* Dark native dropdown list */
+    color-scheme: dark;
+}
+
+/* Replace the browser's arrow with one in the accent color */
+.fields select {
+    appearance: none;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23f5b921' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+}
+
+.fields select option {
+    background: var(--panel-solid);
+    color: var(--text);
+}
+
+.fields select:hover,
+.fields input:hover {
+    border-color: var(--muted);
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+.fields select:focus,
+.fields input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(245, 185, 33, 0.2);
+}
+
+.fields input::placeholder { color: #5f6b53; }
+
+.team-note {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+}

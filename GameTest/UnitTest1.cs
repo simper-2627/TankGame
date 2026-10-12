@@ -302,8 +302,8 @@ public class UnitTest1
     private static PlayerInputRequest Input(Guid playerId, bool shoot, int? aimX = null, int? aimY = null) => new()
     {
         GameName = "shooting", PlayerId = playerId,
-        Up = false, Down = false, Left = false, Right = false, Boost = false,
-        Shoot = shoot, AimX = aimX, AimY = aimY,
+        Up = false, Down = false, Left = false, Right = false,
+        Shoot = shoot, Boost = false, AimX = aimX, AimY = aimY,
     };
 
     [Fact]

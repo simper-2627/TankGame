@@ -37,7 +37,7 @@ public class LobbyHub : Hub
   }
 
   // SignalR doesn't fill optional parameters, so clients must send every argument
-  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null, string? playerName = null, Guid? profileId = null)
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null, string? playerName = null, Guid? profileId = null, TankAppearance? appearance = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -49,7 +49,7 @@ public class LobbyHub : Hub
     Console.WriteLine($"created game: {name}");
 
     var (resolvedName, resolvedProfile) = await lobby.ResolvePlayerAsync(playerName, profileId);
-    var playerId = game.JoinGame(resolvedName, resolvedProfile);
+    var playerId = game.JoinGame(resolvedName, resolvedProfile, appearance);
 
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.CreatedGame, game.Name, playerId);
     game.loopRunner.RunGameLoop();
@@ -58,12 +58,12 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync(Messages.GameList, games);
   }
 
-  public async Task JoinGame(string gameName, string? playerName = null, Guid? profileId = null)
+  public async Task JoinGame(string gameName, string? playerName = null, Guid? profileId = null, TankAppearance? appearance = null)
   {
     var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
       ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
     var (resolvedName, resolvedProfile) = await lobby.ResolvePlayerAsync(playerName, profileId);
-    var playerId = game.JoinGame(resolvedName, resolvedProfile);
+    var playerId = game.JoinGame(resolvedName, resolvedProfile, appearance);
     await SubscribeToGame(gameName, playerId);
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.JoinedGame, game.Name, playerId);
     await Clients.All.SendAsync(Messages.GameList, lobby.Games.Select(g => g.GetGameState()).ToArray());

@@ -64,10 +64,11 @@
             @for (var place = 0; place < standings.Length; place++)
             {
               var row = standings[place];
+              var rowSwatch = TankPalette.For(TankLook.Resolve(row.TankId, row.IsBot, row.Team, game?.Tanks?.FirstOrDefault(t => t.Id == row.TankId)?.Appearance).Hull);
               <div class="leaderboard-row place-@(place + 1) @(row.TankId == PlayerId ? "is-you" : "")">
                 <span class="place-medal" aria-label="@PlaceNames[place] place">@(place + 1)</span>
                 <span class="leaderboard-tank">
-                  <img src="images/PNG/Tanks/tank@(TankPalette.TankColor(row.TankId, row.IsBot, row.Team)).png" alt="" width="36" height="36" />
+                  <img src="images/PNG/Tanks/tank@(rowSwatch.Sprite).png" style="filter: @rowSwatch.Filter;" alt="" width="36" height="36" />
                   <span class="leaderboard-name">@(row.IsBot ? "🤖 " : "")@row.Name@(row.TankId == PlayerId ? " (you)" : "")</span>
                 </span>
                 <span class="result-badge @(row.Won ? "won" : "lost")">@(row.Won ? "WIN" : outcome.Draw ? "DRAW" : "LOSE")</span>
@@ -589,7 +590,7 @@
   // Dev simulation only: another tank to shoot at (it just sits at its spawn point)
   private async Task AddTargetTank()
   {
-    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "", null)!;
+    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName, "", null, (TankAppearance?)null)!;
   }
 
   // Dev simulation only: a computer tank that uses the match's bot difficulty

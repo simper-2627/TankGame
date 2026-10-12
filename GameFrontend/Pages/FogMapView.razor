@@ -1,6 +1,7 @@
 @using GameLogic
 
-<svg class="fog-map" viewBox="0 0 @Map.Width @Map.Height" role="img" aria-label="Explored terrain, obstacles, opponent sightings, and current camera view">
+<svg class="fog-map" viewBox="0 0 @Map.Width @Map.Height" role="img"
+     aria-label="Explored terrain, obstacles, opponent sightings, and current camera view">
     <defs>
         <mask id="@maskId" maskUnits="userSpaceOnUse" x="0" y="0" width="@Map.Width" height="@Map.Height">
             <rect width="@Map.Width" height="@Map.Height" fill="white" />
@@ -16,9 +17,19 @@
             <title>@(contact.Visible ? "Opponent in view" : "Last seen opponent")</title>
         </circle>
     }
+    @foreach (var teammate in Memory.Teammates.Values)
+    {
+        <circle cx="@N(teammate.X)" cy="@N(teammate.Y)" r="42" fill="#29b6f6" stroke="#061016" stroke-width="4"
+                vector-effect="non-scaling-stroke" paint-order="stroke fill">
+            <title>Teammate</title>
+        </circle>
+    }
     @if (Viewer is { } viewer && !viewer.Eliminated && !viewer.Respawning)
     {
-        <circle cx="@(viewer.PositionX + Tank.Size / 2)" cy="@(viewer.PositionY - VisualTopOffset + Tank.Size / 2)" r="48" fill="#00ffad" stroke="#061016" stroke-width="4" vector-effect="non-scaling-stroke" paint-order="stroke fill"><title>Your tank</title></circle>
+        <circle cx="@(viewer.PositionX + Tank.Size / 2)" cy="@(viewer.PositionY - VisualTopOffset + Tank.Size / 2)" r="48"
+                fill="#00ffad" stroke="#061016" stroke-width="4" vector-effect="non-scaling-stroke" paint-order="stroke fill">
+            <title>Your tank</title>
+        </circle>
     }
     <rect x="@N(Camera.X)" y="@N(Camera.Y)" width="@N(Width / Camera.Scale)" height="@N(Height / Camera.Scale)"
           fill="none" stroke="#f5fbff" stroke-width="3" vector-effect="non-scaling-stroke" />

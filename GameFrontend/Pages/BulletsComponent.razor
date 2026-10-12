@@ -6,8 +6,11 @@
             @* Sprite is 20x34 and points up: a white casing at the back, the shooter's color at the tip. Drawn a touch wider
                than the 10px hitbox (like the home page duel) so the colored tip stays visible, and centered on the hitbox.
                Only the position animates, so a bounce flips the shot instantly instead of spinning it *@
-            <img @key="bullet.Id" alt="" src=@($"images/PNG/Bullets/bullet{TankPalette.BulletColor(bullet.OwnerId, owners.GetValueOrDefault(bullet.OwnerId)?.IsBot == true, owners.GetValueOrDefault(bullet.OwnerId)?.Team)}Silver_outline.png")
-                 style=@($"transition: left 0.1s linear, top 0.1s linear; position: absolute; top: {bullet.PositionY + Bullet.BulletSize / 2 - spriteHeight / 2}px; left: {bullet.PositionX + Bullet.BulletSize / 2 - spriteWidth / 2}px; width: {spriteWidth}px; height: {spriteHeight}px; transform: rotate({bullet.Angle + spriteFacingOffset}deg); pointer-events: none;") />
+            var owner = owners.GetValueOrDefault(bullet.OwnerId);
+            @* A shooter hidden by fog isn't in Tanks; its bullet keeps the id-based color *@
+            var swatch = TankPalette.For(TankLook.Resolve(bullet.OwnerId, owner?.IsBot == true, owner?.Team, owner?.Appearance).Bullet);
+            <img @key="bullet.Id" alt="" src=@($"images/PNG/Bullets/bullet{swatch.BulletSprite}Silver_outline.png")
+                 style=@($"transition: left 0.1s linear, top 0.1s linear; position: absolute; top: {bullet.PositionY + Bullet.BulletSize / 2 - spriteHeight / 2}px; left: {bullet.PositionX + Bullet.BulletSize / 2 - spriteWidth / 2}px; width: {spriteWidth}px; height: {spriteHeight}px; transform: rotate({bullet.Angle + spriteFacingOffset}deg); filter: {swatch.BulletFilter}; pointer-events: none;") />
         }
 @code {
     [Parameter]
@@ -16,7 +19,7 @@
     public IEnumerable<TankState> Tanks { get; set; } = [];
     private Dictionary<Guid, TankState> owners = [];
 
-    // Bullets take their colour from the tank that fired them (bot red, team colour, or its own)
+    // Bullets take their colour from the tank that fired them (bot red, team colour, or the player's pick)
     protected override void OnParametersSet() =>
         owners = Tanks.ToDictionary(tank => tank.Id);
     // Game angles use 0deg = right; the sprite points up

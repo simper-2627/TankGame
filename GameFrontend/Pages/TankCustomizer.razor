@@ -1,0 +1,79 @@
+@using GameLogic
+
+@* Edits the player's look; the preview is the same TankComponent the battlefield uses, so what you see is what others see *@
+<div class="customizer">
+    <div class="preview">
+        <TankComponent tank="PreviewTank" VisualTopOffset="0" />
+    </div>
+    <div class="fields">
+        <label>
+            <span>Hull</span>
+            <select value="@(Value.HullColor ?? "")" @onchange="e => Set(Value with { HullColor = Picked(e) })">
+                <option value="">Default</option>
+                @foreach (var color in TankColors.Player) { <option value="@color">@color</option> }
+            </select>
+        </label>
+        <label>
+            <span>Barrel</span>
+            <select value="@(Value.BarrelColor ?? "")" @onchange="e => Set(Value with { BarrelColor = Picked(e) })">
+                <option value="">Same as hull</option>
+                @foreach (var color in TankColors.Player) { <option value="@color">@color</option> }
+            </select>
+        </label>
+        <label>
+            <span>Bullets</span>
+            <select value="@(Value.BulletColor ?? "")" @onchange="e => Set(Value with { BulletColor = Picked(e) })">
+                <option value="">Same as hull</option>
+                @foreach (var color in TankColors.Player) { <option value="@color">@color</option> }
+            </select>
+        </label>
+        <label>
+            <span>Pattern</span>
+            <select value="@Value.Pattern" @onchange="e => Set(Value with { Pattern = Enum.Parse<TankPattern>((string)e.Value!) })">
+                @foreach (var pattern in Enum.GetValues<TankPattern>()) { <option value="@pattern">@pattern</option> }
+            </select>
+        </label>
+        <label>
+            <span>Pattern color</span>
+            <select value="@(Value.PatternColor ?? "")" @onchange="e => Set(Value with { PatternColor = Picked(e) })">
+                <option value="">Black</option>
+                @foreach (var color in TankColors.Player.Where(c => c != "Black")) { <option value="@color">@color</option> }
+            </select>
+        </label>
+        <label>
+            <span>Name color</span>
+            <select value="@(Value.NameColor ?? "")" @onchange="e => Set(Value with { NameColor = Picked(e) })">
+                <option value="">Default</option>
+                @foreach (var color in TankColors.Player) { <option value="@color">@color</option> }
+            </select>
+        </label>
+        <label>
+            <span>Tag</span>
+            @* maxlength counts UTF-16 units, so leave room for emoji; Sanitize cuts it to 4 characters *@
+            <input type="text" maxlength="16" placeholder="e.g. ACE" autocomplete="off" value="@Value.Tag"
+                   @onchange="e => Set(Value with { Tag = e.Value as string ?? string.Empty })" />
+        </label>
+    </div>
+    <p class="team-note">In team matches your hull, barrel and bullets use your team's color; the pattern, name color and tag stay yours.</p>
+</div>
+
+@code {
+    [Parameter] public TankAppearance Value { get; set; } = TankAppearance.Default;
+    [Parameter] public EventCallback<TankAppearance> ValueChanged { get; set; }
+    [Parameter] public string PlayerName { get; set; } = "";
+
+    // Guid.Empty gives the Beige id color, so "Default" previews as Beige
+    private TankState PreviewTank => new()
+    {
+        Id = Guid.Empty,
+        Name = string.IsNullOrWhiteSpace(PlayerName) ? "You" : PlayerName.Trim(),
+        PositionX = 50,
+        PositionY = 30,
+        Appearance = Value,
+    };
+
+    private static string? Picked(ChangeEventArgs e) => e.Value is string { Length: > 0 } color ? color : null;
+
+    // Sanitized here too, so the preview shows exactly what the server will keep (e.g. a cut tag)
+    private Task Set(TankAppearance value) => ValueChanged.InvokeAsync(value.Sanitize());
+}

@@ -142,6 +142,7 @@ public class Game
         {
             Id = t.Id,
             Name = t.Name,
+            Appearance = t.Appearance == TankAppearance.Default ? null : t.Appearance,
             IsBot = t.IsBot,
             Team = t.Team,
             BotState = MatchType == GameMatchTypes.DeveloperSimulation && botBrains.TryGetValue(t.Id, out var brain)
@@ -154,11 +155,13 @@ public class Game
             TurretAngle = t.TurretAngle,
             // A destroyed tank's 0 health is public (it shows as respawning or out); a living tank's isn't
             Health = revealed || t.Health <= 0 ? t.Health : null,
+            BoostEnergy = revealed ? (int)Math.Round(t.BoostEnergy) : null,
             Eliminated = t.Eliminated,
             Deaths = revealed ? t.Deaths : null,
             RespawnTicksLeft = t.RespawnTicksLeft,
             Flashing = t.HitFlashTicks > 0,
             Boosting = t.Boosting,
+            Shielded = t.Shielded,
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
@@ -229,7 +232,7 @@ public class Game
     // A blank name (quick join, or no name set) gets a generated one that no one else in the game has.
     // A profile id makes the tank earn currency for that profile. A profile has one tank per game: joining again
     // (back from the lobby, a refresh) returns that tank and starts its clock again
-    public Guid JoinGame(string? playerName = null, Guid? profileId = null)
+    public Guid JoinGame(string? playerName = null, Guid? profileId = null, TankAppearance? appearance = null)
     {
         lock (StateLock)
         {
@@ -250,7 +253,7 @@ public class Game
             if (Tanks.Count() >= Map.MaxPlayers)
                 throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
 
-            var id = AddTank(playerName, isBot: false);
+            var id = AddTank(playerName, isBot: false, appearance);
             if (profileId is { } profile)
             {
                 profileByTank[id] = profile;
@@ -320,7 +323,7 @@ public class Game
     }
 
     // Caller holds StateLock. No free spawn point means the tank waits, like a respawn
-    private Guid AddTank(string? playerName, bool isBot)
+    private Guid AddTank(string? playerName, bool isBot, TankAppearance? appearance = null)
     {
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         // Humans join whichever team is smaller; bots stay teamless and attack everyone
@@ -332,6 +335,7 @@ public class Game
                 ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
                 : playerName.Trim(),
             IsBot = isBot,
+            Appearance = isBot ? TankAppearance.Default : (appearance ?? TankAppearance.Default).Sanitize(),
             PositionX = spawnPoint?.X ?? 0,
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,

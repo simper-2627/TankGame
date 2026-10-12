@@ -4,15 +4,22 @@
 
 <button type="button" class="minimap-toggle" aria-label="Expand minimap (Tab)" aria-haspopup="dialog" @onclick="Open">
     <span class="minimap-caption">RECON <span>Tab &#8599;</span></span>
-    <FogMapView Map="Map" Memory="memory" Camera="Camera" Width="Width" Height="Height" Viewer="Viewer" VisualTopOffset="VisualTopOffset" />
+    <FogMapView Map="Map" Memory="memory" Camera="Camera" Width="Width" Height="Height" Viewer="Viewer"
+                VisualTopOffset="VisualTopOffset" />
 </button>
 <dialog class="expanded-map" @ref="dialog" aria-labelledby="recon-title">
-    <header><div><h2 id="recon-title">Recon map</h2><span>@Map.Name &middot; Tab to close</span></div>
+    <header>
+        <div>
+            <h2 id="recon-title">Recon map</h2><span>@Map.Name &middot; Tab to close</span>
+        </div>
         <button type="button" class="map-close" aria-label="Close expanded minimap" @onclick="Close">&times;</button>
     </header>
-    <FogMapView Map="Map" Memory="memory" Camera="Camera" Width="Width" Height="Height" Viewer="Viewer" VisualTopOffset="VisualTopOffset" />
-    <footer><span class="you">&#9679; You</span><span class="enemy">&#9679; In view</span><span class="memory">&#9679; Last seen</span><span>&#9633; Camera view</span><span>Dark = unexplored</span></footer>
-</dialog>
+    <FogMapView Map="Map" Memory="memory" Camera="Camera" Width="Width" Height="Height" Viewer="Viewer"
+                VisualTopOffset="VisualTopOffset" />
+    <footer><span class="you">&#9679; You</span><span class="ally">&#9679; Teammate</span><span class="enemy">&#9679; In
+        view</span><span class="memory">&#9679; Last seen</span><span>&#9633; Camera view</span><span>Dark =
+        unexplored</span></footer>
+    </dialog>
 
 @code {
     [Parameter, EditorRequired] public GameMap Map { get; set; } = default!;
@@ -25,7 +32,8 @@
     private TankState? Viewer => Tanks.FirstOrDefault(t => t.Id == PlayerId);
     private readonly FogMapMemory memory = new();
     private ElementReference dialog;
-    protected override void OnParametersSet() => memory.Observe(Map, Camera, Width, Height, Tanks, PlayerId, VisualTopOffset);
+    protected override void OnParametersSet() => memory.Observe(Map, Camera, Width, Height, Tanks, PlayerId,
+VisualTopOffset);
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await JS.InvokeVoidAsync("tankViewport.attachMinimap", dialog);
