@@ -114,6 +114,7 @@ public class Game
                 : null,
             Map = includeMap ? Map : null,
             Tanks = tanks,
+            Standings = Status == GameStatus.Ended ? BuildStandings() : null,
             Explosions = Explosions.Select(e => new ExplosionState()
             {
                 Id = e.Id,
@@ -161,7 +162,25 @@ public class Game
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
+            Earned = isOwner ? EarnedSoFar(t) : null,
+            LastHitTargetId = isOwner ? t.LastHitTargetId : null,
         };
+    }
+
+    private StandingState[] BuildStandings()
+    {
+        var result = new MatchResult(true, WinnerId, BotsWon, WinningTeam);
+        lock (StateLock)
+            return Standings.Build(Tanks, result, tank => ProfileStore is null ? null : Tracker.Total(tank));
+    }
+
+    // The tracker is only safe under the state lock, and snapshots are built outside it
+    private Earnings? EarnedSoFar(Tank tank)
+    {
+        if (ProfileStore is null)
+            return null;
+        lock (StateLock)
+            return Tracker.Total(tank);
     }
 
     public Task SendInitialUpdate(string connectionId, Guid? playerId = null) =>

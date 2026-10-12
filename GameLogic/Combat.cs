@@ -48,6 +48,7 @@ public static class Combat
             {
                 HitsLanded = tankList[shooterIndex].HitsLanded + 1,
                 Kills = tankList[shooterIndex].Kills + (health == 0 ? 1 : 0),
+                LastHitTargetId = target.Id,
             };
     }
 

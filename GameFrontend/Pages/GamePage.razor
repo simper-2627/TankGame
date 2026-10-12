@@ -1,10 +1,12 @@
 @page "/game/{GameName}/player/{PlayerId:guid}"
 @using GameLogic
 @using GameLogic.Game
+@using GameLogic.Profiles
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.AspNetCore.SignalR
 @inject SignalRService signalR
 @inject Microsoft.JSInterop.IJSRuntime JS
+@inject GameFrontend.ProfileService profiles
 @implements IAsyncDisposable
 
 
@@ -30,21 +32,71 @@
           <span>Time left: @(secondsLeft / 60):@((secondsLeft % 60).ToString("00"))</span>
         }
       </div>
-      @if (game.Status == GameStatus.Ended)
-      {
-        <div class="alert alert-info py-2 mb-2">
-          @(game.WinningTeam is int team ? (team == LocalTank?.Team ? "Your team wins!" : $"{Teams.Name(team)} team wins")
-            : game.BotsWon ? "The bots won!"
-            : game.WinnerId is null ? "Draw!"
-            : game.WinnerId == PlayerId ? "You win!"
-            : $"{game.WinnerId.Value.ToString()[^5..]} wins")
-        </div>
-      }
       @if (WatchingOther)
       {
         <div class="small mb-2">@(LocalTank?.Respawning == true ? "Waiting to respawn" : "Eliminated") &middot; @(CameraTarget is null ? "No living players to follow" : $"Following {CameraTarget.Id.ToString()[^5..]}")</div>
       }
     </div>
+    @if (LocalTank?.Earned is { } earned)
+    {
+      <div class="cash-hud" aria-live="off" title="Cash earned this match, paid when it ends or you leave">
+        <span class="cash-hud-icon" aria-hidden="true">💰</span>
+        <span class="cash-hud-value" @key="earned.Cash">+@earned.Cash</span>
+        <span class="cash-hud-detail">@earned.Hits @(earned.Hits == 1 ? "hit" : "hits") &middot; @earned.Kills @(earned.Kills == 1 ? "kill" : "kills")</span>
+      </div>
+    }
+    @if (game.Status == GameStatus.Ended && !summaryDismissed)
+    {
+      var rates = CurrencyRates.Default;
+      var outcome = Outcome;
+      <div class="match-over" role="dialog" aria-labelledby="match-over-title">
+        <h2 id="match-over-title" class="match-over-title match-over-@outcome.Css">@outcome.Title</h2>
+        @if (outcome.Subtitle is { } subtitle)
+        {
+          <p class="match-over-subtitle">@subtitle</p>
+        }
+        @if (game.Standings is { Length: > 0 } standings)
+        {
+          <div class="leaderboard">
+            <div class="leaderboard-row leaderboard-head">
+              <span></span><span>Tank</span><span>Result</span><span>Kills</span><span>Cash</span>
+            </div>
+            @for (var place = 0; place < standings.Length; place++)
+            {
+              var row = standings[place];
+              <div class="leaderboard-row place-@(place + 1) @(row.TankId == PlayerId ? "is-you" : "")">
+                <span class="place-medal" aria-label="@PlaceNames[place] place">@(place + 1)</span>
+                <span class="leaderboard-tank">
+                  <img src="images/PNG/Tanks/tank@(TankPalette.TankColor(row.TankId, row.IsBot, row.Team)).png" alt="" width="36" height="36" />
+                  <span class="leaderboard-name">@(row.IsBot ? "🤖 " : "")@row.Name@(row.TankId == PlayerId ? " (you)" : "")</span>
+                </span>
+                <span class="result-badge @(row.Won ? "won" : "lost")">@(row.Won ? "WIN" : outcome.Draw ? "DRAW" : "LOSE")</span>
+                <span>@row.Kills</span>
+                <span class="leaderboard-cash">@(row.Cash is long cash ? $"+{cash}" : "—")</span>
+              </div>
+            }
+          </div>
+        }
+        @if (LocalTank?.Earned is { } result)
+        {
+          <h3 class="payout-heading">Your payout</h3>
+          <table class="payout-table">
+            <tr><td>Time played (@FormatTime(result.Seconds))</td><td>+@(result.Seconds / rates.SecondsPerCash)</td></tr>
+            <tr><td>Hits (@result.Hits &times; @rates.CashPerHit)</td><td>+@(result.Hits * rates.CashPerHit)</td></tr>
+            <tr><td>Kills (@result.Kills &times; @rates.CashPerKill)</td><td>+@(result.Kills * rates.CashPerKill)</td></tr>
+            <tr class="payout-total"><td>Total</td><td>+@result.Cash</td></tr>
+          </table>
+          @if (balance is not null)
+          {
+            <p class="payout-balance">New balance: <strong>@balance</strong></p>
+          }
+        }
+        <div class="payout-actions">
+          <a href="/" class="btn btn-primary">Return to lobby</a>
+          <button type="button" class="btn btn-outline-light" @onclick="DismissSummary">Close</button>
+        </div>
+      </div>
+    }
       <PlayerControls GameName=@GameName PlayerId=PlayerId ViewportChanged="ResizeViewport" Camera="Camera">
         @if (game.Map is { } map)
         {
@@ -67,6 +119,11 @@
         }
         <BulletsComponent Bullets="@(game.Bullets ?? [])" Tanks="@(game.Tanks ?? [])" />
         <ExplosionsComponent Explosions="@(game.Explosions ?? [])" />
+        @foreach (var popup in cashPopups)
+        {
+          <div @key="popup.Id" class="cash-popup @(popup.Kill ? "cash-popup-kill" : "")"
+               style="@($"left: {popup.X}px; top: {popup.Y}px;")">@(popup.Kill ? "KILL " : "")+@popup.Amount</div>
+        }
       </PlayerControls>
     @if (viewportMeasured && game.Map is { Mode: MapMode.Foggish } fogMap)
     {
@@ -200,6 +257,84 @@
   public Guid PlayerId { get; set; }
 
   private GameState? game = null;
+
+  // Floating "+5" / "KILL +30" over the tank we hit when a hit or kill lands. Purely cosmetic and client-side:
+  // they come from the change in the server's running totals between two updates
+  private sealed record CashPopup(long Id, int Amount, bool Kill, int X, int Y, long ExpiresAt);
+  private const int PopupMs = 1200;
+  private readonly List<CashPopup> cashPopups = [];
+  private Earnings? lastEarned;
+  private long nextPopupId;
+  private bool summaryDismissed;
+  private long? balance;
+  private bool balanceRequested;
+
+  private void DismissSummary() => summaryDismissed = true;
+
+  private static readonly string[] PlaceNames = ["Gold", "Silver", "Bronze"];
+
+  private record MatchOutcome(string Title, string Css, string? Subtitle, bool Draw = false);
+
+  // How the match ended for this player
+  private MatchOutcome Outcome
+  {
+    get
+    {
+      if (game?.WinningTeam is int team)
+      {
+        var mine = team == LocalTank?.Team;
+        return new(mine ? "VICTORY" : "DEFEAT", mine ? "win" : "lose", $"{Teams.Name(team)} team wins");
+      }
+      if (game?.BotsWon == true)
+        return new("DEFEAT", "lose", "The bots won");
+      if (game?.WinnerId is not Guid winner)
+        return new("DRAW", "draw", "Nobody won", Draw: true);
+      return winner == PlayerId
+        ? new("VICTORY", "win", null)
+        : new("DEFEAT", "lose", $"{game.Tanks?.FirstOrDefault(t => t.Id == winner)?.Name ?? "Another player"} wins");
+    }
+  }
+
+  private static string FormatTime(long seconds) => $"{seconds / 60}:{(seconds % 60):00}";
+
+  private void TrackCash(GameState state)
+  {
+    var now = Environment.TickCount64;
+    cashPopups.RemoveAll(popup => popup.ExpiresAt <= now);
+    var tank = state.Tanks?.FirstOrDefault(t => t.Id == PlayerId);
+    var earned = tank?.Earned;
+    if (earned is not null && lastEarned is not null && tank is not null)
+    {
+      var hits = (int)(earned.Hits - lastEarned.Hits);
+      var kills = (int)(earned.Kills - lastEarned.Kills);
+      if (hits > 0 || kills > 0)
+      {
+        var rates = CurrencyRates.Default;
+        // Over the tank that was hit; over our own if it can't be found
+        var hit = state.Tanks?.FirstOrDefault(t => t.Id == tank.LastHitTargetId) ?? tank;
+        cashPopups.Add(new CashPopup(nextPopupId++, hits * rates.CashPerHit + kills * rates.CashPerKill, kills > 0,
+          hit.PositionX + Tank.Size / 2 - 30, hit.PositionY - state.DeveloperSettings.VisualTopOffset - 10, now + PopupMs));
+      }
+    }
+    lastEarned = earned;
+
+    // The payout happens before the final update goes out, so the balance is already up to date by now
+    if (state.Status == GameStatus.Ended && earned is not null && !balanceRequested)
+    {
+      balanceRequested = true;
+      _ = LoadBalance();
+    }
+  }
+
+  private async Task LoadBalance()
+  {
+    try
+    {
+      balance = (await profiles.LoadAsync()).Cash;
+      await InvokeAsync(StateHasChanged);
+    }
+    catch (Exception) { /* The summary still shows what was earned */ }
+  }
   private TankState? LocalTank => game?.Tanks?.FirstOrDefault(t => t.Id == PlayerId);
   private bool WatchingOther => LocalTank is { } tank && (tank.Respawning || tank.Eliminated);
   private Guid? followedPlayer;
@@ -273,6 +408,11 @@
       await previous.InvokeAsync("UnsubscribeFromGame", subscribedGame);
     gameSubscription?.Dispose();
     game = null;
+    cashPopups.Clear();
+    lastEarned = null;
+    summaryDismissed = false;
+    balanceRequested = false;
+    balance = null;
     subscribedGame = GameName;
     gameSubscription = signalR.HubConnection?.On<GameState>(Messages.GameUpdate, (gameState) =>
     {
@@ -281,6 +421,7 @@
         gameState.ServerWorkMs, gameState.ServerIntervalMs, gameState.ServerBroadcastMs);
       // Live snapshots omit the immutable map. Keep the initial map instance and its cached SVG.
       game = gameState with { Map = gameState.Map ?? game?.Map };
+      TrackCash(game);
       if (gameState.MatchType == GameMatchTypes.DeveloperSimulation && !developerSettingsLoaded)
       {
         LoadDeveloperSettings(gameState.DeveloperSettings);

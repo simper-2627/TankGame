@@ -24,7 +24,7 @@ Give players a persistent profile (editable display name) and an in-game currenc
 
 ### Earnings
 - `Earnings { Cash, Seconds, Hits, Kills }`.
-- `CurrencyRates`: one record holding every number. Placeholder defaults: 1 cash per 10 seconds, 2 per hit, 25 per tank destroyed.
+- `CurrencyRates`: one record holding every number. Placeholder defaults: 1 cash per 10 seconds, 5 per hit, 25 per tank destroyed.
 - `EarningsTracker` (pure; no SignalR or clock): fed events per human tank (tick, hit, kill) and returns earnings.
   - Time counts only while the match is in progress.
   - Self-hits do not count (consistent with `HitsLanded`).

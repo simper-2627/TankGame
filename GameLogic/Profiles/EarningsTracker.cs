@@ -42,27 +42,37 @@ public class EarningsTracker(CurrencyRates rates, int ticksPerSecond)
             entry.Active = true;
     }
 
+    // Everything this tank has earned so far (paid or not), for showing the player. Changes nothing.
+    // Null for a tank that never earns (bots, anonymous players)
+    public Earnings? Total(Tank tank) =>
+        entries.TryGetValue(tank.Id, out var entry) ? TotalFor(tank, entry) : null;
+
+    private Earnings TotalFor(Tank tank, Entry entry)
+    {
+        // Paid out as whole cash; the remainder of an interval stays in Ticks for next time
+        var seconds = entry.Ticks / ticksPerSecond;
+        var cash = seconds / rates.SecondsPerCash
+            + (long)tank.HitsLanded * rates.CashPerHit
+            + (long)tank.Kills * rates.CashPerKill;
+        return new Earnings(cash, seconds, tank.HitsLanded, tank.Kills);
+    }
+
     public Earnings Flush(Tank tank)
     {
         if (!entries.TryGetValue(tank.Id, out var entry))
             return new Earnings(0, 0, 0, 0);
 
-        // Totals are paid out as whole cash; the remainder of an interval stays in Ticks for next time
-        var seconds = entry.Ticks / ticksPerSecond;
-        var totalCash = seconds / rates.SecondsPerCash
-            + (long)tank.HitsLanded * rates.CashPerHit
-            + (long)tank.Kills * rates.CashPerKill;
-
+        var total = TotalFor(tank, entry);
         var earned = new Earnings(
-            Cash: totalCash - entry.PaidCash,
-            Seconds: seconds - entry.PaidSeconds,
-            Hits: tank.HitsLanded - entry.PaidHits,
-            Kills: tank.Kills - entry.PaidKills);
+            Cash: total.Cash - entry.PaidCash,
+            Seconds: total.Seconds - entry.PaidSeconds,
+            Hits: total.Hits - entry.PaidHits,
+            Kills: total.Kills - entry.PaidKills);
 
-        entry.PaidCash = totalCash;
-        entry.PaidSeconds = seconds;
-        entry.PaidHits = tank.HitsLanded;
-        entry.PaidKills = tank.Kills;
+        entry.PaidCash = total.Cash;
+        entry.PaidSeconds = total.Seconds;
+        entry.PaidHits = total.Hits;
+        entry.PaidKills = total.Kills;
         return earned;
     }
 }

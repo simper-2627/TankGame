@@ -7,7 +7,10 @@ namespace GameTest;
 
 public class ProfileEarningsTests
 {
-    // One shot ends it: 1 health, 1 life. Winner gets 1 hit and 1 kill = 2 + 25 cash, plus a little time
+    private static readonly CurrencyRates Rates = CurrencyRates.Default;
+    private static readonly int HitAndKill = Rates.CashPerHit + Rates.CashPerKill;
+
+    // One shot ends it: 1 health, 1 life. Winner gets 1 hit and 1 kill, plus a little time
     private static async Task<(Game Game, InMemoryProfileStore Store, Profile Winner, Profile Loser)> FinishedDuel()
     {
         var store = new InMemoryProfileStore();
@@ -31,10 +34,10 @@ public class ProfileEarningsTests
 
         Assert.Equal(1, winner.HitsLanded);
         Assert.Equal(1, winner.Kills);
-        Assert.Equal(27 + winner.SecondsPlayed / 10, winner.Cash);
+        Assert.Equal(HitAndKill + winner.SecondsPlayed / Rates.SecondsPerCash, winner.Cash);
         Assert.Equal(0, loser.HitsLanded);
         Assert.Equal(0, loser.Kills);
-        Assert.Equal(loser.SecondsPlayed / 10, loser.Cash);
+        Assert.Equal(loser.SecondsPlayed / Rates.SecondsPerCash, loser.Cash);
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public class ProfileEarningsTests
         await game.PayOutAsync(shooter);
 
         Assert.Equal(1, afterLeaving.Kills);
-        Assert.True(afterLeaving.Cash >= 27);
+        Assert.True(afterLeaving.Cash >= HitAndKill);
         Assert.Equal(afterLeaving, await store.GetAsync(shooterProfile.Id));
     }
 
@@ -220,7 +223,49 @@ public class ProfileEarningsTests
             Assert.DoesNotContain(theirs.Id.ToString(), json);
         }
     }
+
+    [Fact]
+    public async Task OnlyTheOwnerSeesWhatTheirTankHasEarnedSoFar()
+    {
+        var store = new InMemoryProfileStore();
+        var (minePro, theirsPro) = (await store.CreateAsync(), await store.CreateAsync());
+        var game = TestGames.NewGame(new MatchSettings { Health = 1, Lives = 5 }, profileStore: store);
+        var me = game.JoinGame("A", minePro.Id);
+        var them = game.JoinGame("B", theirsPro.Id);
+        TestGames.ShootAt(game, me, them);
+        await TestGames.TickUntil(game, () => game.Tanks.Single(t => t.Id == them).Deaths == 1);
+
+        var mine = game.GetGameState(viewerId: me).Tanks!.ToDictionary(t => t.Id);
+        var spectator = game.GetGameState(viewerId: null).Tanks!.ToDictionary(t => t.Id);
+
+        Assert.Equal(1, mine[me].Earned!.Hits);
+        Assert.Equal(1, mine[me].Earned!.Kills);
+        Assert.True(mine[me].Earned!.Cash >= HitAndKill);
+        Assert.Null(mine[them].Earned);
+        Assert.Null(spectator[me].Earned);
+        Assert.Equal(them, mine[me].LastHitTargetId);
+        Assert.Null(spectator[me].LastHitTargetId);
+    }
+
+    [Fact]
+    public async Task APlayerWithoutAProfileHasNothingToShow()
+    {
+        var game = TestGames.NewGame(profileStore: new InMemoryProfileStore());
+        var me = game.JoinGame("A");
+
+        Assert.Null(game.GetGameState(viewerId: me).Tanks!.Single().Earned);
+    }
+
+    [Fact]
+    public async Task AGameThatPaysNobodyShowsNoEarnings()
+    {
+        var game = TestGames.NewGame();
+        var me = game.JoinGame("A", Guid.NewGuid());
+
+        Assert.Null(game.GetGameState(viewerId: me).Tanks!.Single().Earned);
+    }
 }
+
 
 public class LobbyProfileTests
 {

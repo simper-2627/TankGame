@@ -44,4 +44,26 @@ public class KillTrackingTests
         Assert.Equal(0, tanks[0].Kills);
         Assert.Equal(0, tanks[0].HitsLanded);
     }
+
+    [Fact]
+    public void TheShooterRemembersWhichTankItHitLast()
+    {
+        var (tanks, shooter) = Duel(targetHealth: 3);
+        var target = tanks[1];
+
+        Combat.ApplyHit(tanks, 1, shooter.Id, new MatchSettings());
+
+        Assert.Equal(target.Id, tanks[0].LastHitTargetId);
+    }
+
+    [Fact]
+    public void ShootingYourselfIsNotRememberedAsAHit()
+    {
+        var solo = new Tank { Health = 2 };
+        var tanks = new List<Tank> { solo };
+
+        Combat.ApplyHit(tanks, 0, solo.Id, new MatchSettings());
+
+        Assert.Null(tanks[0].LastHitTargetId);
+    }
 }

@@ -7,7 +7,7 @@ public record Earnings(long Cash, long Seconds, int Hits, int Kills)
 }
 
 // Every earning rate in one place, so tuning the economy is a one-line change
-public record CurrencyRates(int SecondsPerCash = 10, int CashPerHit = 2, int CashPerKill = 25)
+public record CurrencyRates(int SecondsPerCash = 10, int CashPerHit = 5, int CashPerKill = 25)
 {
     public static readonly CurrencyRates Default = new();
 }
