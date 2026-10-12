@@ -53,6 +53,10 @@ public record Tank
     public bool Shielded => ShieldTicksLeft > 0;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
+    // Tanks this one has destroyed (not counting itself); paid out as currency
+    public int Kills { get; init; }
+    // The last other tank this one hit; lets the shooter's screen show the payout where the hit happened
+    public Guid? LastHitTargetId { get; init; }
     // Game clock time (ms) at which the tank may fire again; 0 = ready
     public long NextShotAtMs { get; init; }
     //public Bullet Bullet { get; set; } = new();

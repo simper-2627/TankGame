@@ -2,9 +2,12 @@
 @using GameLogic
 @using GameLogic.Game
 @inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR
 @using Microsoft.AspNetCore.SignalR.Client
+@using GameLogic.Profiles
 @using System.Text.Json
 @inject SignalRService signalR;
+@inject ProfileService profiles
 @inject IJSRuntime JS
 
 <PageTitle>Tanks · Command Center</PageTitle>
@@ -67,15 +70,24 @@
     </div>
   </header>
 
-  <section class="panel">
-    <label class="field">
-      <span class="field-label">Your name</span>
-      <div class="name-input">
-        <input type="text" placeholder="Leave blank for a random name" maxlength="20" autocomplete="off"
-               @bind=playerName @bind:event="oninput" />
+  <section class="panel profile-panel">
+    <div class="profile-name">
+      <span class="field-label">Your profile</span>
+      <div class="name-input @(profileError is null ? "" : "has-error")">
+        <input type="text" placeholder="Callsign" maxlength="20" autocomplete="off"
+               @bind=nameDraft @bind:event="oninput" />
+        <button class="btn-game" disabled="@(!NameChanged)" @onclick="SaveName">Save</button>
       </div>
-    </label>
-    <TankCustomizer Value="appearance" ValueChanged="OnAppearanceChanged" PlayerName="@playerName" />
+      @if (profileError is not null)
+      {
+        <span class="field-error">@profileError</span>
+      }
+    </div>
+    <div class="profile-cash">
+      <span class="profile-cash-value">@(profile?.Cash ?? 0)</span>
+      <span class="profile-cash-label">Cash</span>
+    </div>
+    <TankCustomizer Value="appearance" ValueChanged="OnAppearanceChanged" PlayerName="@(profile?.DisplayName ?? "")" />
   </section>
 
   <section class="panel deploy-panel">
@@ -510,9 +522,30 @@
 
 
   private string userInputGameName = "";
-  // Static so it survives leaving a game and coming back to the lobby
-  private static string playerName = "";
-  // Static like playerName; read from the browser once per visit and written back on every change
+  private Profile? profile;
+  private string nameDraft = "";
+  private string? profileError;
+  private bool NameChanged => profile is not null && nameDraft.Trim() != profile.DisplayName;
+
+  private async Task SaveName()
+  {
+    profileError = null;
+    try
+    {
+      profile = await profiles.RenameAsync(nameDraft);
+      nameDraft = profile.DisplayName;
+    }
+    catch (HubException)
+    {
+      profileError = "Names need 1 to 20 characters.";
+    }
+    catch
+    {
+      profileError = "Couldn't save your name. Try again.";
+    }
+  }
+
+  // Static so it survives leaving a game and coming back to the lobby; read from the browser once per visit and written back on every change
   private static TankAppearance appearance = TankAppearance.Default;
   private static bool appearanceLoaded;
   private const string appearanceKey = "tankAppearance";
@@ -618,6 +651,17 @@
     await LoadAppearance();
     await signalR.EnsureConnected();
 
+    try
+    {
+      profile = await profiles.LoadAsync();
+      nameDraft = profile.DisplayName;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine(ex);
+      profileError = "Couldn't load your profile.";
+    }
+
     subscriptions.Add(signalR.HubConnection!.On<IEnumerable<GameState>>(Messages.GameList, (newGames) => {
       Console.WriteLine("got game list");
 
@@ -720,7 +764,7 @@
     {
       // Invoke (not Send) so a server-side rejection comes back as an exception
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim(), appearance);
+        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, "", profile?.Id, appearance);
     }
     catch (Exception ex)
     {
@@ -737,7 +781,7 @@
     try
     {
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim(), appearance);
+        await connection.InvokeAsync(Messages.JoinGame, gameName, "", profile?.Id, appearance);
     }
     catch
     {

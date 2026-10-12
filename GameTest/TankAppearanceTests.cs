@@ -81,7 +81,7 @@ public class TankAppearanceJoinTests
     public void ChosenLookIsSentToEveryViewer()
     {
         var game = TestGames.NewGame();
-        var me = game.JoinGame("Ben", purple);
+        var me = game.JoinGame("Ben", appearance: purple);
         var other = game.JoinGame();
 
         Assert.Equal(purple, Seen(game, me, other).Appearance);
@@ -91,7 +91,7 @@ public class TankAppearanceJoinTests
     public void BadLookIsCleanedBeforeAnyoneSeesIt()
     {
         var game = TestGames.NewGame();
-        var me = game.JoinGame(null, new TankAppearance { HullColor = "Red", BulletColor = "Purple", Tag = "TOOLONG" });
+        var me = game.JoinGame(appearance: new TankAppearance { HullColor = "Red", BulletColor = "Purple", Tag = "TOOLONG" });
 
         Assert.Equal(new TankAppearance { BulletColor = "Purple", Tag = "TOOL" }, Seen(game, me).Appearance);
     }
@@ -109,7 +109,7 @@ public class TankAppearanceJoinTests
     public void LookThatCleansToDefaultSendsNothingExtra()
     {
         var game = TestGames.NewGame();
-        var me = game.JoinGame(null, new TankAppearance { HullColor = "Red", Tag = "   " });
+        var me = game.JoinGame(appearance: new TankAppearance { HullColor = "Red", Tag = "   " });
 
         Assert.Null(Seen(game, me).Appearance);
     }
@@ -118,7 +118,7 @@ public class TankAppearanceJoinTests
     public void BotsNeverCarryALook()
     {
         var game = TestGames.NewGame(new MatchSettings { BotCount = 2 }, matchType: GameMatchTypes.Bots);
-        game.JoinGame(null, purple);
+        game.JoinGame(appearance: purple);
 
         var bots = game.GetGameState().Tanks!.Where(t => t.IsBot).ToArray();
         Assert.Equal(2, bots.Length);
@@ -129,7 +129,7 @@ public class TankAppearanceJoinTests
     public void TeamMatchStillSendsTheLookSoPatternAndTagCanBeDrawn()
     {
         var game = TestGames.NewGame(new MatchSettings { Mode = GameMode.TeamElimination });
-        var me = game.JoinGame(null, purple);
+        var me = game.JoinGame(appearance: purple);
 
         var seen = Seen(game, me);
         Assert.NotNull(seen.Team);

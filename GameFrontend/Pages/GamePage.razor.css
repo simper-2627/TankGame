@@ -58,3 +58,53 @@
 /* Private respawn preview, drawn only for the waiting player */
 .spawn-marker { position: absolute; box-sizing: border-box; border: 2px dashed #3fb950; border-radius: 6px; background: #3fb95022; pointer-events: none; animation: spawn-marker-pulse 1s ease-in-out infinite; }
 @keyframes spawn-marker-pulse { 50% { opacity: .35; } }
+
+
+/* Running total of cash earned this match */
+.cash-hud { position: absolute; left: 12px; bottom: 12px; z-index: 1; display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-radius: 10px; background: #111b16d9; color: #fff; pointer-events: none; }
+.cash-hud-icon { font-size: 1.1rem; }
+.cash-hud-value { font-size: 1.5rem; font-weight: 700; color: #ffd35a; font-variant-numeric: tabular-nums; animation: cash-bump 350ms ease-out; }
+.cash-hud-detail { font-size: .8rem; opacity: .8; }
+@keyframes cash-bump { 0% { transform: scale(1.5); color: #fff; } 100% { transform: scale(1); } }
+
+/* Floating "+5" over the tank; lives in map coordinates so it moves with the camera */
+.cash-popup { position: absolute; z-index: 20; width: 60px; text-align: center; font-weight: 700; font-size: 1.1rem; color: #ffd35a; text-shadow: 0 1px 3px #000, 0 0 6px #000; pointer-events: none; user-select: none; white-space: nowrap; animation: cash-popup-rise 1200ms ease-out forwards; }
+.cash-popup-kill { width: 120px; margin-left: -30px; font-size: 1.5rem; color: #ff9d2e; }
+@keyframes cash-popup-rise { 0% { opacity: 0; transform: translateY(0) scale(.6); } 15% { opacity: 1; transform: translateY(-10px) scale(1.15); } 100% { opacity: 0; transform: translateY(-60px) scale(1); } }
+
+/* End-of-match screen: result, top-3 leaderboard, personal payout */
+.match-over { position: absolute; top: 50%; left: 50%; z-index: 3; transform: translate(-50%, -50%); width: min(520px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; padding: 24px 28px; border: 1px solid #718268; border-radius: 18px; background: linear-gradient(180deg, #1b2a21f7, #0e1712f7); color: #fff; box-shadow: 0 20px 80px #000a; animation: match-over-in 350ms ease-out; }
+@keyframes match-over-in { from { opacity: 0; transform: translate(-50%, -46%) scale(.96); } }
+.match-over-title { margin: 0; text-align: center; font-size: 2.4rem; font-weight: 800; letter-spacing: .12em; }
+.match-over-win { color: #ffd35a; text-shadow: 0 0 24px #ffd35a66; }
+.match-over-lose { color: #ff6b5e; text-shadow: 0 0 24px #ff6b5e44; }
+.match-over-draw { color: #c9d3cc; }
+.match-over-subtitle { margin: 2px 0 0; text-align: center; opacity: .8; }
+
+.leaderboard { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; }
+.leaderboard-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 62px 44px 58px; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #ffffff0f; border-left: 4px solid transparent; font-variant-numeric: tabular-nums; }
+.leaderboard-row > :nth-child(n+3) { text-align: center; }
+.leaderboard-head { padding-top: 0; padding-bottom: 0; background: none; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; }
+.leaderboard-tank { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.leaderboard-tank img { transform: rotate(180deg); flex: none; }
+.leaderboard-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard-cash { color: #ffd35a; font-weight: 700; }
+.is-you { outline: 1px solid #ffffff55; }
+.place-medal { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; font-size: .85rem; color: #1a1a1a; }
+.place-1 { border-left-color: #f5c542; background: linear-gradient(90deg, #f5c54233, #ffffff0f 60%); }
+.place-1 .place-medal { background: radial-gradient(circle at 35% 30%, #fff1a8, #f5c542 60%, #b8860b); }
+.place-2 { border-left-color: #c4ccd4; background: linear-gradient(90deg, #c4ccd433, #ffffff0f 60%); }
+.place-2 .place-medal { background: radial-gradient(circle at 35% 30%, #ffffff, #c4ccd4 60%, #7d8790); }
+.place-3 { border-left-color: #cd7f32; background: linear-gradient(90deg, #cd7f3233, #ffffff0f 60%); }
+.place-3 .place-medal { background: radial-gradient(circle at 35% 30%, #f3c79a, #cd7f32 60%, #7a4a18); }
+.result-badge { padding: 2px 0; border-radius: 6px; font-size: .72rem; font-weight: 800; letter-spacing: .06em; }
+.result-badge.won { background: #3fb95033; color: #6be07a; }
+.result-badge.lost { background: #ff6b5e26; color: #ff8a80; }
+
+.payout-heading { margin: 20px 0 6px; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; opacity: .7; }
+.payout-table { width: 100%; font-variant-numeric: tabular-nums; }
+.payout-table td:last-child { text-align: right; color: #ffd35a; }
+.payout-table tr td { padding: 3px 0; }
+.payout-total td { padding-top: 8px; border-top: 1px solid #718268; font-weight: 700; font-size: 1.1rem; }
+.payout-balance { margin: 10px 0 0; }
+.payout-actions { display: flex; gap: 8px; margin-top: 18px; }

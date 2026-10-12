@@ -1,4 +1,5 @@
 using GameLogic.Bots;
+using GameLogic.Profiles;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 
@@ -34,6 +35,14 @@ public class Game
 
     // Tank id -> the brain steering it
     private readonly ConcurrentDictionary<Guid, BotBrain> botBrains = new();
+
+    // Where earnings go; null means nobody is paid (tests, or no store configured)
+    public IProfileStore? ProfileStore { get; init; }
+    // Money rules live in the tracker; tests can swap in different rates
+    internal EarningsTracker Tracker { get; init; } = new(CurrencyRates.Default, GameLoopRunner.TicksPerSecond);
+    // Tank id -> the profile it plays for. Private on purpose: a profile id is a credential and is never sent to clients
+    private readonly Dictionary<Guid, Guid> profileByTank = new();
+    private bool matchPaidOut;
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
@@ -105,6 +114,7 @@ public class Game
                 : null,
             Map = includeMap ? Map : null,
             Tanks = tanks,
+            Standings = Status == GameStatus.Ended ? BuildStandings() : null,
             Explosions = Explosions.Select(e => new ExplosionState()
             {
                 Id = e.Id,
@@ -155,7 +165,25 @@ public class Game
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
+            Earned = isOwner ? EarnedSoFar(t) : null,
+            LastHitTargetId = isOwner ? t.LastHitTargetId : null,
         };
+    }
+
+    private StandingState[] BuildStandings()
+    {
+        var result = new MatchResult(true, WinnerId, BotsWon, WinningTeam);
+        lock (StateLock)
+            return Standings.Build(Tanks, result, tank => ProfileStore is null ? null : Tracker.Total(tank));
+    }
+
+    // The tracker is only safe under the state lock, and snapshots are built outside it
+    private Earnings? EarnedSoFar(Tank tank)
+    {
+        if (ProfileStore is null)
+            return null;
+        lock (StateLock)
+            return Tracker.Total(tank);
     }
 
     public Task SendInitialUpdate(string connectionId, Guid? playerId = null) =>
@@ -201,13 +229,24 @@ public class Game
         }
     }
 
-    // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
-    public Guid JoinGame(string? playerName = null, TankAppearance? appearance = null)
+    // A blank name (quick join, or no name set) gets a generated one that no one else in the game has.
+    // A profile id makes the tank earn currency for that profile. A profile has one tank per game: joining again
+    // (back from the lobby, a refresh) returns that tank and starts its clock again
+    public Guid JoinGame(string? playerName = null, Guid? profileId = null, TankAppearance? appearance = null)
     {
         lock (StateLock)
         {
             if (Status == GameStatus.Ended)
                 throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+            if (profileId is { } returning)
+            {
+                var owned = profileByTank.Where(entry => entry.Value == returning).Select(entry => (Guid?)entry.Key).FirstOrDefault();
+                if (owned is { } existingTank)
+                {
+                    Tracker.Resume(existingTank);
+                    return existingTank;
+                }
+            }
             // A match with bots is the creator's alone; the bots fill the other seats
             if (MatchType == GameMatchTypes.Bots && HumanCount >= 1)
                 throw new InvalidOperationException($"cannot join game, it is single player: {Name}");
@@ -215,6 +254,11 @@ public class Game
                 throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
 
             var id = AddTank(playerName, isBot: false, appearance);
+            if (profileId is { } profile)
+            {
+                profileByTank[id] = profile;
+                Tracker.Register(id);
+            }
             CreatorId ??= id;
             // Bots arrive with the creator in single player and with the 2nd human in multiplayer; until then nobody
             // would be fighting them. Their seats come out of the same limit as everyone's, so humans can't take them
@@ -225,6 +269,56 @@ public class Game
                     AddTank(null, isBot: true);
             }
             return id;
+        }
+    }
+
+    // A connection watching this tank went away. Pay what the player has earned, and stop their clock only if nothing
+    // else is watching the tank: a refresh or reconnect may already have subscribed again before the old connection is noticed gone
+    public Task PlayerLeftAsync(Guid tankId) =>
+        PayOutAsync(tankId, stopClock: !ConnectedClients.Values.Any(watching => watching == tankId));
+
+    // A connection is watching this tank again (reconnect, refresh): its time counts again
+    public void ResumeEarning(Guid tankId)
+    {
+        lock (StateLock)
+            Tracker.Resume(tankId);
+    }
+
+    // With a tank id: that player is leaving, so pay what they have earned (and stop their clock unless told not to).
+    // Without: the match is over, pay everyone (once). Paying again never repeats a payout
+    public async Task PayOutAsync(Guid? tankId = null, bool stopClock = true)
+    {
+        if (ProfileStore is null)
+            return;
+
+        List<(Guid ProfileId, Earnings Earned)> due = [];
+        lock (StateLock)
+        {
+            if (tankId is null)
+            {
+                if (matchPaidOut)
+                    return;
+                matchPaidOut = true;
+            }
+            foreach (var tank in Tanks)
+            {
+                if (tankId is { } only && tank.Id != only)
+                    continue;
+                if (!profileByTank.TryGetValue(tank.Id, out var profileId))
+                    continue;
+                var earned = Tracker.Flush(tank);
+                if (tankId is not null && stopClock)
+                    Tracker.Stop(tank.Id);
+                if (!earned.IsEmpty)
+                    due.Add((profileId, earned));
+            }
+        }
+
+        // A failing store must not take the game loop down with it
+        foreach (var (profileId, earned) in due)
+        {
+            try { await ProfileStore.AwardAsync(profileId, earned); }
+            catch (Exception ex) { Console.WriteLine($"Could not pay {profileId} in game {Name}: {ex}"); }
         }
     }
 

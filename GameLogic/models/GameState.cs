@@ -1,4 +1,5 @@
 using GameLogic.Game;
+using GameLogic.Profiles;
 
 namespace GameLogic;
 
@@ -24,6 +25,8 @@ public record GameState
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }
     public IEnumerable<ExplosionState>? Explosions { get; init; }
+    // The leaderboard; null until the match has ended
+    public StandingState[]? Standings { get; init; }
 }
 
 public static class GameMatchTypes
@@ -81,6 +84,11 @@ public record TankState
     // Private: ms until the tank can fire again (0 = ready); null for everyone but the owner
     public int? ReloadMsLeft { get; init; }
     public int HitsLanded { get; init; }
+    // Private: what this tank's profile has earned this match so far. Null for everyone but the owner, and for
+    // tanks that earn nothing (no profile, or a game that pays nobody)
+    public Earnings? Earned { get; init; }
+    // Private: the last tank this one hit, so the cash popup can appear over it
+    public Guid? LastHitTargetId { get; init; }
     // Destroyed with lives left, waiting to come back
     public bool Respawning => Health <= 0 && !Eliminated;
 }
